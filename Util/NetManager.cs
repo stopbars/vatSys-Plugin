@@ -16,7 +16,13 @@ namespace BARS.Util
             {
                 if (_instance == null)
                 {
-                    _instance = new NetManager();
+                    lock (_lock)
+                    {
+                        if (_instance == null)
+                        {
+                            _instance = new NetManager();
+                        }
+                    }
                 }
                 return _instance;
             }
