@@ -9,7 +9,7 @@
 [![Discord](https://img.shields.io/discord/1323993176318414889.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://stopbars.com/discord)
 
 
-The BARS vatSys Plugin enables controllers participating in the plugin to manage and update airport lighting to directly reflect into simulators for pilots utilising the Pilot Client synchronising lighting status between controllers and pilots.
+The BARS vatSys Plugin enables controllers participating in the plugin to manage and update airport lighting to directly reflect into simulators for pilots utilising the Pilot Client, synchronising lighting status between controllers and pilots.
 
 <br>
 
