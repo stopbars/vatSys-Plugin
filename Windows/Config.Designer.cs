@@ -22,18 +22,18 @@
             this.txt_key = new vatsys.TextField();
             this.lbl_key = new vatsys.TextLabel();
             this.SuspendLayout();
-            // 
-            // pnl_airports
-            // 
-            this.pnl_airports.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
+
+
+
+            this.pnl_airports.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.pnl_airports.Location = new System.Drawing.Point(12, 87);
             this.pnl_airports.Name = "pnl_airports";
             this.pnl_airports.Size = new System.Drawing.Size(260, 175);
             this.pnl_airports.TabIndex = 3;
-            // 
-            // lbl_icao
-            // 
+
+
+
             this.lbl_icao.AutoSize = true;
             this.lbl_icao.BackColor = System.Drawing.SystemColors.ControlDark;
             this.lbl_icao.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
@@ -46,9 +46,9 @@
             this.lbl_icao.TabIndex = 0;
             this.lbl_icao.Text = "ICAO:";
             this.lbl_icao.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // txt_icao
-            // 
+
+
+
             this.txt_icao.BackColor = System.Drawing.SystemColors.ControlDark;
             this.txt_icao.CharacterCasing = System.Windows.Forms.CharacterCasing.Upper;
             this.txt_icao.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
@@ -62,9 +62,9 @@
             this.txt_icao.TabIndex = 1;
             this.txt_icao.TakesReturn = false;
             this.txt_icao.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txt_icao_KeyPress);
-            // 
-            // btn_add
-            // 
+
+
+
             this.btn_add.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
             this.btn_add.Location = new System.Drawing.Point(138, 15);
             this.btn_add.Name = "btn_add";
@@ -75,9 +75,9 @@
             this.btn_add.Text = "ADD";
             this.btn_add.UseVisualStyleBackColor = true;
             this.btn_add.Click += new System.EventHandler(this.btn_add_Click);
-            // 
-            // txt_key
-            // 
+
+
+
             this.txt_key.BackColor = System.Drawing.SystemColors.ControlDark;
             this.txt_key.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
             this.txt_key.ForeColor = System.Drawing.SystemColors.ControlDark;
@@ -91,9 +91,9 @@
             this.txt_key.TakesReturn = false;
             this.txt_key.UseSystemPasswordChar = true;
             this.txt_key.TextChanged += new System.EventHandler(this.apiKeyInput_TextChanged);
-            // 
-            // lbl_key
-            // 
+
+
+
             this.lbl_key.AutoSize = true;
             this.lbl_key.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.lbl_key.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
@@ -106,9 +106,9 @@
             this.lbl_key.TabIndex = 4;
             this.lbl_key.Text = "API Key:";
             this.lbl_key.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // Config
-            // 
+
+
+
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(284, 272);

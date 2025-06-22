@@ -1,37 +1,32 @@
-﻿using System;
+﻿using BARS.Util;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using vatsys;
-using BARS.Util;
-using System.IO;
 using System.Xml;
+using vatsys;
 
 namespace BARS.Windows
 {
     public partial class Controller_Legacy : BaseForm
     {
-        private Size originalFormSize;
+        private static readonly Logger logger = new Logger("LeagcyController");
+        private List<Stopbar> AirportStopBars = new List<Stopbar>();
+        private List<Font> createdFonts = new List<Font>();
+        private Dictionary<float, Dictionary<FontStyle, Font>> fontCache = new Dictionary<float, Dictionary<FontStyle, Font>>();
+        private bool isAdjustingFormSize = false;
+        private bool isResizing = false;
+        private Size lastSize;
         private float originalAspectRatio;
         private Dictionary<Control, Rectangle> originalControlDimensions = new Dictionary<Control, Rectangle>();
         private Dictionary<Control, Font> originalFonts = new Dictionary<Control, Font>();
-        private Dictionary<float, Dictionary<FontStyle, Font>> fontCache = new Dictionary<float, Dictionary<FontStyle, Font>>();
-        private List<Font> createdFonts = new List<Font>();
+        private Size originalFormSize;
         private Dictionary<Control, bool> originalVisibility = new Dictionary<Control, bool>();
         private Timer resizeTimer = new Timer();
-        private bool isResizing = false;
-        private bool isAdjustingFormSize = false;
-        private Size lastSize;
-        private List<Stopbar> AirportStopBars = new List<Stopbar>();
-        private static readonly Logger logger = new Logger("LeagcyController");
 
-        // Profile property for runway configuration
-        public string ActiveProfile { get; private set; }
         public Controller_Legacy(string Airport, string Profile)
         {
             InitializeComponent();
@@ -42,69 +37,46 @@ namespace BARS.Windows
             _ = SetupResizeHandling();
             _ = LoadProfile();
         }
-        
-        async Task SetupResizeHandling()
+
+
+        public string ActiveProfile { get; private set; }
+
+        public string Airport { get; set; }
+
+        public void SetStopbarState(string barsId, bool state, bool autoRaise = true)
         {
-            resizeTimer.Interval = 100;
-            resizeTimer.Tick += ResizeTimer_Tick;
-
-            this.FormClosing += Controller_FormClosing;
-            this.Load += Controller_Load;
-            this.ResizeBegin += Controller_ResizeBegin;
-            this.ResizeEnd += Controller_ResizeEnd;
-            this.Resize += Controller_Resize;
-            this.SizeChanged += Controller_SizeChanged;
-
-            this.DoubleBuffered = true;
-            SetStyle(ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.UserPaint, true);
-
-            // Subscribe to stopbar events
-            ControllerHandler.StopbarStateChanged += StopbarStateChanged;
-
-            await Task.Yield();
+            ControllerHandler.SetStopbarState(this.Airport, barsId, state, WindowType.Legacy, autoRaise);
         }
 
-        async Task LoadProfile()
+        public void ToggleStopbar(string barsId, bool autoRaise = true)
         {
-            try
+            ControllerHandler.ToggleStopbar(this.Airport, barsId, WindowType.Legacy, autoRaise);
+        }
+
+        private void ApplyResize()
+        {
+            if (this.ClientSize == lastSize)
+                return;
+
+            lastSize = this.ClientSize;
+
+            if (pnl_legacy != null)
             {
-                string profilePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "BARS", "vatSys", $"{Airport}_{ActiveProfile.Replace("/","-")}.xml");
-
-                if (!File.Exists(profilePath))
-                {
-                    MessageBox.Show($"Profile file not found: {profilePath}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                XmlDocument doc = new XmlDocument();
-                doc.Load(profilePath);
-
-                // Configure runways
-                ConfigureRunways(doc);
-
-                // Configure stopbars
-                ConfigureStopbars(doc);
-
-                // Register all stopbars with the system
-                RegisterStopbars(doc);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error loading profile: {ex.Message}", "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                pnl_legacy.Location = new Point(0, 0);
+                pnl_legacy.Size = this.ClientSize;
             }
 
-            await Task.Yield();
+            float ratio = Math.Min(
+                (float)this.ClientSize.Width / originalFormSize.Width,
+                (float)this.ClientSize.Height / originalFormSize.Height
+            );
+
+            ResizeAllControls(ratio);
         }
 
         private void ConfigureRunways(XmlDocument doc)
         {
-            // Configure horizontal runway
+
             XmlNode hRunway = doc.SelectSingleNode("//RunwayConfig/HorizontalRunway");
             if (hRunway != null && bool.Parse(hRunway.SelectSingleNode("Visible").InnerText))
             {
@@ -117,7 +89,7 @@ namespace BARS.Windows
                 pnl_1_runway.Visible = false;
             }
 
-            // Configure vertical runway
+
             XmlNode vRunway = doc.SelectSingleNode("//RunwayConfig/VerticalRunway");
             if (vRunway != null && bool.Parse(vRunway.SelectSingleNode("Visible").InnerText))
             {
@@ -163,7 +135,7 @@ namespace BARS.Windows
                 }
             }
 
-            // Configure crossbars
+
             XmlNodeList crossbars = doc.SelectNodes("//CrossbarsConfig/Crossbar");
             foreach (XmlNode crossbar in crossbars)
             {
@@ -189,57 +161,15 @@ namespace BARS.Windows
             }
         }
 
-        private void RegisterStopbars(XmlDocument doc)
+        private void Controller_FormClosing(object sender, FormClosingEventArgs e)
         {
-            XmlNodeList stopbars = doc.SelectNodes("//Stopbars/Stopbar");
-            foreach (XmlNode stopbar in stopbars)
+            if (e.CloseReason == CloseReason.UserClosing)
             {
-                string barsId = stopbar.SelectSingleNode("BARSId").InnerText;
-                string displayName = stopbar.SelectSingleNode("DisplayName").InnerText;
-                ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+
+                ControllerHandler.StopbarStateChanged -= StopbarStateChanged;
+
+                resizeTimer.Dispose();
             }
-
-            XmlNodeList crossbars = doc.SelectNodes("//CrossbarsConfig/Crossbar");
-            foreach (XmlNode crossbar in crossbars)
-            {
-                string barsId = crossbar.SelectSingleNode("BARSId").InnerText;
-                string displayName = crossbar.SelectSingleNode("DisplayName").InnerText;
-                ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
-            }
-        }
-
-        async Task InitializeStyle()
-        {
-            foreach (Control control in GetAllControls(this))
-            {
-                if (control != null && control.Name.EndsWith("_taxi"))
-                {
-                    control.BackColor = Color.FromArgb(255, 144, 144, 144);
-                }
-
-                if (control != null && control.Name.EndsWith("_runway"))
-                {
-                    control.BackColor = Color.FromArgb(255, 91, 91, 91);
-                }
-
-                if (control != null && control.Name.EndsWith("_tri"))
-                {
-                    control.BackColor = Color.FromArgb(255, 67, 67, 67);
-                }
-
-                if (control != null && control.Name.StartsWith("lbl_s") || control.Name.EndsWith("_S"))
-                {
-                    control.ForeColor = Color.FromArgb(255, 0, 0, 0);
-                    control.BackColor = Color.FromArgb(255, 255, 255, 255);
-                }
-
-                if (control != null && control.BackColor == Color.PeachPuff)
-                {
-                    control.BackColor = Color.FromArgb(255, 91, 91, 91);
-                }
-            }
-
-            await Task.Yield();
         }
 
         private void Controller_Load(object sender, EventArgs e)
@@ -265,7 +195,7 @@ namespace BARS.Windows
                     SetDoubleBuffered(panel);
                 }
 
-                // Fix: Only add click handler if the control is a Label
+
                 if (control is Label label && control.Cursor == Cursors.Hand && control.Visible)
                 {
                     label.MouseUp += Stopbar_Click;
@@ -278,78 +208,24 @@ namespace BARS.Windows
             }
         }
 
-        private void Stopbar_Click(object sender, MouseEventArgs e)
+        private void Controller_Resize(object sender, EventArgs e)
         {
-            Label labelClicked = (Label)sender;
-            // We should only toggle the exact stopbar that matches the clicked label's ID
-            foreach (Stopbar stopbar in ControllerHandler.GetStopbarsForAirport(Airport))
+            if (originalFormSize.Width == 0 || originalFormSize.Height == 0)
+                return;
+
+            if (isResizing && pnl_legacy != null)
             {
-                // Use exact matching rather than Contains() to prevent partial matches
-                if (labelClicked.Name == $"lbl_{stopbar.BARSId}")
-                {
-                    logger.Log($"Clicked stopbar: {stopbar.BARSId}");
-                    if (e.Button == MouseButtons.Left)
-                    {
-                        logger.Log($"Toggling stopbar: {stopbar.BARSId}");
-                        ToggleStopbar(stopbar.BARSId, true);
-                    }
-                    else if (e.Button == MouseButtons.Right)
-                    {
-                        logger.Log($"Setting stopbar state: {stopbar.BARSId}");
-                        ToggleStopbar(stopbar.BARSId, false);
-                    }
-                    // Break after finding the exact match
-                    break;
-                }
+                pnl_legacy.Location = new Point(0, 0);
+                pnl_legacy.Size = this.ClientSize;
+
+                resizeTimer.Stop();
+                resizeTimer.Start();
             }
-        }
-
-        private void RemoveAllAnchors(Control container)
-        {
-            foreach (Control control in container.Controls)
+            else if (!isResizing && !isAdjustingFormSize)
             {
-                control.Anchor = AnchorStyles.None;
-
-                if (control.Controls.Count > 0)
+                if (this.ClientSize != lastSize)
                 {
-                    RemoveAllAnchors(control);
-                }
-            }
-        }
-
-        private IEnumerable<Control> GetAllControls(Control container)
-        {
-            List<Control> controlList = new List<Control>();
-            foreach (Control c in container.Controls)
-            {
-                controlList.Add(c);
-                controlList.AddRange(GetAllControls(c));
-            }
-            return controlList;
-        }
-
-        private void SetDoubleBuffered(Control control)
-        {
-            var propInfo = typeof(Control).GetProperty("DoubleBuffered",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            propInfo.SetValue(control, true, null);
-        }
-
-        private void StoreOriginalControlInfo(Control container)
-        {
-            foreach (Control control in container.Controls)
-            {
-                originalControlDimensions[control] = new Rectangle(control.Location, control.Size);
-                originalVisibility[control] = control.Visible;
-
-                if (control.Font != null)
-                {
-                    originalFonts[control] = control.Font;
-                }
-
-                if (control.Controls.Count > 0)
-                {
-                    StoreOriginalControlInfo(control);
+                    ApplyResize();
                 }
             }
         }
@@ -375,24 +251,18 @@ namespace BARS.Windows
             }
         }
 
-        private void Controller_Resize(object sender, EventArgs e)
+        private void Controller_ResizeEnd(object sender, EventArgs e)
         {
-            if (originalFormSize.Width == 0 || originalFormSize.Height == 0)
-                return;
+            isResizing = false;
+            resizeTimer.Stop();
+            EnforceAspectRatio();
+            ApplyResize();
 
-            if (isResizing && pnl_legacy != null)
+            foreach (Control control in originalVisibility.Keys)
             {
-                pnl_legacy.Location = new Point(0, 0);
-                pnl_legacy.Size = this.ClientSize;
-
-                resizeTimer.Stop();
-                resizeTimer.Start();
-            }
-            else if (!isResizing && !isAdjustingFormSize)
-            {
-                if (this.ClientSize != lastSize)
+                if (!control.IsDisposed)
                 {
-                    ApplyResize();
+                    control.Visible = originalVisibility[control];
                 }
             }
         }
@@ -479,61 +349,119 @@ namespace BARS.Windows
             }
         }
 
-        private void Controller_ResizeEnd(object sender, EventArgs e)
+        private IEnumerable<Control> GetAllControls(Control container)
         {
-            isResizing = false;
-            resizeTimer.Stop();
-            EnforceAspectRatio();
-            ApplyResize();
-
-            foreach (Control control in originalVisibility.Keys)
+            List<Control> controlList = new List<Control>();
+            foreach (Control c in container.Controls)
             {
-                if (!control.IsDisposed)
+                controlList.Add(c);
+                controlList.AddRange(GetAllControls(c));
+            }
+            return controlList;
+        }
+
+        private async Task InitializeStyle()
+        {
+            foreach (Control control in GetAllControls(this))
+            {
+                if (control != null && control.Name.EndsWith("_taxi"))
                 {
-                    control.Visible = originalVisibility[control];
+                    control.BackColor = Color.FromArgb(255, 144, 144, 144);
+                }
+
+                if (control != null && control.Name.EndsWith("_runway"))
+                {
+                    control.BackColor = Color.FromArgb(255, 91, 91, 91);
+                }
+
+                if (control != null && control.Name.EndsWith("_tri"))
+                {
+                    control.BackColor = Color.FromArgb(255, 67, 67, 67);
+                }
+
+                if (control != null && control.Name.StartsWith("lbl_s") || control.Name.EndsWith("_S"))
+                {
+                    control.ForeColor = Color.FromArgb(255, 0, 0, 0);
+                    control.BackColor = Color.FromArgb(255, 255, 255, 255);
+                }
+
+                if (control != null && control.BackColor == Color.PeachPuff)
+                {
+                    control.BackColor = Color.FromArgb(255, 91, 91, 91);
+                }
+            }
+
+            await Task.Yield();
+        }
+
+        private async Task LoadProfile()
+        {
+            try
+            {
+                string profilePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "BARS", "vatSys", $"{Airport}_{ActiveProfile.Replace("/", "-")}.xml");
+
+                if (!File.Exists(profilePath))
+                {
+                    MessageBox.Show($"Profile file not found: {profilePath}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                XmlDocument doc = new XmlDocument();
+                doc.Load(profilePath);
+
+
+                ConfigureRunways(doc);
+
+
+                ConfigureStopbars(doc);
+
+
+                RegisterStopbars(doc);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading profile: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            await Task.Yield();
+        }
+
+        private void RegisterStopbars(XmlDocument doc)
+        {
+            XmlNodeList stopbars = doc.SelectNodes("//Stopbars/Stopbar");
+            foreach (XmlNode stopbar in stopbars)
+            {
+                string barsId = stopbar.SelectSingleNode("BARSId").InnerText;
+                string displayName = stopbar.SelectSingleNode("DisplayName").InnerText;
+                ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+            }
+
+            XmlNodeList crossbars = doc.SelectNodes("//CrossbarsConfig/Crossbar");
+            foreach (XmlNode crossbar in crossbars)
+            {
+                string barsId = crossbar.SelectSingleNode("BARSId").InnerText;
+                string displayName = crossbar.SelectSingleNode("DisplayName").InnerText;
+                ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+            }
+        }
+
+        private void RemoveAllAnchors(Control container)
+        {
+            foreach (Control control in container.Controls)
+            {
+                control.Anchor = AnchorStyles.None;
+
+                if (control.Controls.Count > 0)
+                {
+                    RemoveAllAnchors(control);
                 }
             }
         }
 
-        private void ResizeTimer_Tick(object sender, EventArgs e)
-        {
-            resizeTimer.Stop();
-
-            if (!isResizing)
-            {
-                EnforceAspectRatio();
-                ApplyResize();
-
-                foreach (Control control in originalVisibility.Keys)
-                {
-                    if (!control.IsDisposed)
-                    {
-                        control.Visible = originalVisibility[control];
-                    }
-                }
-            }
-        }
-
-        private void ApplyResize()
-        {
-            if (this.ClientSize == lastSize)
-                return;
-
-            lastSize = this.ClientSize;
-
-            if (pnl_legacy != null)
-            {
-                pnl_legacy.Location = new Point(0, 0);
-                pnl_legacy.Size = this.ClientSize;
-            }
-
-            float ratio = Math.Min(
-                (float)this.ClientSize.Width / originalFormSize.Width,
-                (float)this.ClientSize.Height / originalFormSize.Height
-            );
-
-            ResizeAllControls(ratio);
-        }
         private void ResizeAllControls(float ratio)
         {
             this.SuspendLayout();
@@ -607,45 +535,128 @@ namespace BARS.Windows
             this.Refresh();
         }
 
-        private void Controller_FormClosing(object sender, FormClosingEventArgs e)
+        private void ResizeTimer_Tick(object sender, EventArgs e)
         {
-            if (e.CloseReason == CloseReason.UserClosing)
+            resizeTimer.Stop();
+
+            if (!isResizing)
             {
-                // Unsubscribe from events to prevent memory leaks
-                ControllerHandler.StopbarStateChanged -= StopbarStateChanged;
-                
-                resizeTimer.Dispose();
+                EnforceAspectRatio();
+                ApplyResize();
+
+                foreach (Control control in originalVisibility.Keys)
+                {
+                    if (!control.IsDisposed)
+                    {
+                        control.Visible = originalVisibility[control];
+                    }
+                }
             }
         }
-        
+
+        private void SetDoubleBuffered(Control control)
+        {
+            var propInfo = typeof(Control).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            propInfo.SetValue(control, true, null);
+        }
+
+        private async Task SetupResizeHandling()
+        {
+            resizeTimer.Interval = 100;
+            resizeTimer.Tick += ResizeTimer_Tick;
+
+            this.FormClosing += Controller_FormClosing;
+            this.Load += Controller_Load;
+            this.ResizeBegin += Controller_ResizeBegin;
+            this.ResizeEnd += Controller_ResizeEnd;
+            this.Resize += Controller_Resize;
+            this.SizeChanged += Controller_SizeChanged;
+
+            this.DoubleBuffered = true;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.AllPaintingInWmPaint |
+                     ControlStyles.UserPaint, true);
+
+
+            ControllerHandler.StopbarStateChanged += StopbarStateChanged;
+
+            await Task.Yield();
+        }
+
+        private void Stopbar_Click(object sender, MouseEventArgs e)
+        {
+            Label labelClicked = (Label)sender;
+
+            foreach (Stopbar stopbar in ControllerHandler.GetStopbarsForAirport(Airport))
+            {
+
+                if (labelClicked.Name == $"lbl_{stopbar.BARSId}")
+                {
+                    logger.Log($"Clicked stopbar: {stopbar.BARSId}");
+                    if (e.Button == MouseButtons.Left)
+                    {
+                        logger.Log($"Toggling stopbar: {stopbar.BARSId}");
+                        ToggleStopbar(stopbar.BARSId, true);
+                    }
+                    else if (e.Button == MouseButtons.Right)
+                    {
+                        logger.Log($"Setting stopbar state: {stopbar.BARSId}");
+                        ToggleStopbar(stopbar.BARSId, false);
+                    }
+
+                    break;
+                }
+            }
+        }
+
         private void StopbarStateChanged(object sender, StopbarEventArgs e)
         {
-            // Only process events for this airport and window type
+
             if (e.Stopbar.Airport == this.Airport && e.WindowType == WindowType.Legacy)
             {
-                // Update the UI based on the stopbar state
+
                 UpdateStopbarUI(e.Stopbar);
             }
         }
-        
-        void UpdateStopbarUI(Stopbar stopbar)
+
+        private void StoreOriginalControlInfo(Control container)
         {
-            // Need to invoke on the UI thread if called from a background thread
+            foreach (Control control in container.Controls)
+            {
+                originalControlDimensions[control] = new Rectangle(control.Location, control.Size);
+                originalVisibility[control] = control.Visible;
+
+                if (control.Font != null)
+                {
+                    originalFonts[control] = control.Font;
+                }
+
+                if (control.Controls.Count > 0)
+                {
+                    StoreOriginalControlInfo(control);
+                }
+            }
+        }
+
+        private void UpdateStopbarUI(Stopbar stopbar)
+        {
+
             if (this.InvokeRequired)
             {
                 this.Invoke(new Action<Stopbar>(UpdateStopbarUI), stopbar);
                 return;
             }
 
-            // Find stopbar controls using exact name matching
+
             foreach (Control control in GetAllControls(this))
             {
                 if (control != null)
                 {
-                    // Use exact matching patterns for each control type
+
                     string taxiName = $"pnl_{stopbar.BARSId}_taxi";
                     string triName = $"pnl_{stopbar.BARSId}_tri";
-                    
+
                     if (control.Name == taxiName)
                     {
                         control.BackgroundImage = stopbar.State ? null : Properties.Resources.LeadOn;
@@ -664,17 +675,5 @@ namespace BARS.Windows
                 }
             }
         }
-        
-        public void ToggleStopbar(string barsId, bool autoRaise = true)
-        {
-            ControllerHandler.ToggleStopbar(this.Airport, barsId, WindowType.Legacy, autoRaise);
-        }
-        
-        public void SetStopbarState(string barsId, bool state, bool autoRaise = true)
-        {
-            ControllerHandler.SetStopbarState(this.Airport, barsId, state, WindowType.Legacy, autoRaise);
-        }
-
-        public string Airport { get; set; }
     }
 }

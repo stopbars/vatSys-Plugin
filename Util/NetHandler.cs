@@ -1,56 +1,44 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Net.WebSockets;
+using System.Text;
 using System.Threading;
-using Newtonsoft.Json;
-using System.Timers;
-using System.Net;
-using System.IO;
+using System.Threading.Tasks;
 
 namespace BARS.Util
 {
     public class NetHandler
     {
+        private const int HEARTBEAT_INTERVAL = 30000;
+
+        private const int HEARTBEAT_TIMEOUT = 60000;
+
+        private const int SERVER_UPDATE_DELAY = 100;
+
+        private readonly object _updateLock = new object();
         private readonly Logger logger = new Logger("NetHandler");
 
-        // Constants matching the server configuration
-        private const int HEARTBEAT_INTERVAL = 30000; // 30 seconds (matching server)
-        private const int HEARTBEAT_TIMEOUT = 60000;  // 60 seconds (matching server)
-        private const int SERVER_UPDATE_DELAY = 100; // 100ms delay for server updates
-        
-        // Unique identifier for this connection
-        public string ConnectionId { get; private set; }
-        
-        // WebSocket client
-        private ClientWebSocket _webSocket;
-        private CancellationTokenSource _cancellationTokenSource;
-        private System.Timers.Timer _heartbeatTimer;
-        private DateTime _lastHeartbeatReceived;
-        private bool _isConnected = false;
-        private string _apiKey;
         private string _airport;
+
+        private string _apiKey;
+
+        private CancellationTokenSource _cancellationTokenSource;
+
         private string _controllerId;
-        private readonly object _updateLock = new object();
 
-        // Event handlers
-        public delegate void ConnectionEventHandler(object sender, bool isConnected);
-        public delegate void StateUpdateEventHandler(object sender, Dictionary<string, object> stopbarStates);
-        public delegate void ErrorEventHandler(object sender, string errorMessage);
+        private System.Timers.Timer _heartbeatTimer;
 
-        public event ConnectionEventHandler OnConnectionChanged;
-        public event StateUpdateEventHandler OnStateUpdate;
-        public event ErrorEventHandler OnError;
+        private bool _isConnected = false;
 
-        // Track local stopbar states
+        private DateTime _lastHeartbeatReceived;
+
         private Dictionary<string, object> _localStopbarStates = new Dictionary<string, object>();
 
-        // Track if a state change is coming from the network
         private bool _processingNetworkUpdate = false;
 
-        // Constructor with connection ID
+        private ClientWebSocket _webSocket;
+
         public NetHandler(string connectionId = null)
         {
             _webSocket = null;
@@ -58,15 +46,20 @@ namespace BARS.Util
             ConnectionId = connectionId ?? Guid.NewGuid().ToString();
         }
 
-        // Initialize connection parameters
-        public void Initialize(string apiKey, string airport, string controllerId)
-        {
-            _apiKey = apiKey;
-            _airport = airport;
-            _controllerId = controllerId;
-        }
+        public delegate void ConnectionEventHandler(object sender, bool isConnected);
 
-        // Connect to the WebSocket server
+        public delegate void ErrorEventHandler(object sender, string errorMessage);
+
+        public delegate void StateUpdateEventHandler(object sender, Dictionary<string, object> stopbarStates);
+
+        public event ConnectionEventHandler OnConnectionChanged;
+
+        public event ErrorEventHandler OnError;
+
+        public event StateUpdateEventHandler OnStateUpdate;
+
+        public string ConnectionId { get; private set; }
+
         public async Task<bool> Connect()
         {
             if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_airport))
@@ -86,26 +79,20 @@ namespace BARS.Util
                 _cancellationTokenSource = new CancellationTokenSource();
                 _webSocket = new ClientWebSocket();
 
-                // Create connection URL with parameters
                 string wsUrl = $"wss://v2.stopbars.com/connect?key={_apiKey}&airport={_airport}";
                 Uri serverUri = new Uri(wsUrl);
 
-                // Connect to the server
                 await _webSocket.ConnectAsync(serverUri, _cancellationTokenSource.Token);
-                
-                // Start listening for messages
+
                 _isConnected = true;
                 OnConnectionChanged?.Invoke(this, true);
-                
-                // Setup and start heartbeat timer
+
                 StartHeartbeat();
-                
-                // Start the message receiving loop
+
                 _ = ReceiveMessagesAsync();
-                
-                // Log connection
+
                 logger.Log($"Connected to BARS server for airport {_airport}");
-                
+
                 return true;
             }
             catch (Exception ex)
@@ -117,7 +104,6 @@ namespace BARS.Util
             }
         }
 
-        // Disconnect from the WebSocket server
         public async Task Disconnect()
         {
             if (_webSocket == null)
@@ -125,12 +111,10 @@ namespace BARS.Util
 
             try
             {
-                // Stop the heartbeat timer first
                 StopHeartbeat();
 
                 if (_webSocket.State == WebSocketState.Open)
                 {
-                    // Only try to send close message if socket is still open
                     try
                     {
                         await SendPacket(new
@@ -140,26 +124,21 @@ namespace BARS.Util
                     }
                     catch (Exception)
                     {
-                        // Suppress send errors during disconnect
                     }
 
-                    // Attempt graceful closure
                     await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
                         "Client disconnecting",
                         CancellationToken.None);
                 }
 
-                // Cancel any ongoing operations
                 _cancellationTokenSource.Cancel();
 
-                // Clean up WebSocket
                 try
                 {
                     _webSocket.Dispose();
                 }
                 catch (Exception)
                 {
-                    // Suppress dispose errors
                 }
                 finally
                 {
@@ -176,100 +155,31 @@ namespace BARS.Util
                 OnError?.Invoke(this, $"Disconnect error: {ex.Message} (Socket State: {stateMsg})");
                 logger.Error($"WebSocket disconnect error: {ex.Message} (Socket State: {stateMsg})");
 
-                // Ensure cleanup even on error
                 _webSocket = null;
                 _isConnected = false;
                 OnConnectionChanged?.Invoke(this, false);
             }
         }
 
-
-        // Start the heartbeat timer
-        private void StartHeartbeat()
+        public Dictionary<string, object> GetAllStopbarStates()
         {
-            _lastHeartbeatReceived = DateTime.Now;
-            
-            _heartbeatTimer = new System.Timers.Timer(HEARTBEAT_INTERVAL);
-            _heartbeatTimer.Elapsed += async (sender, e) => await SendHeartbeat();
-            _heartbeatTimer.AutoReset = true;
-            _heartbeatTimer.Start();
+            return new Dictionary<string, object>(_localStopbarStates);
         }
 
-        // Stop the heartbeat timer
-        private void StopHeartbeat()
+        public void Initialize(string apiKey, string airport, string controllerId)
         {
-            if (_heartbeatTimer != null)
-            {
-                _heartbeatTimer.Stop();
-                _heartbeatTimer.Dispose();
-                _heartbeatTimer = null;
-            }
+            _apiKey = apiKey;
+            _airport = airport;
+            _controllerId = controllerId;
         }
 
-        // Send a heartbeat to the server
-        private async Task SendHeartbeat()
+        public bool IsConnected()
         {
-            try
-            {
-                // Check if server is responsive
-                if ((DateTime.Now - _lastHeartbeatReceived).TotalMilliseconds > HEARTBEAT_TIMEOUT)
-                {
-                    logger.Log("Heartbeat timeout, reconnecting...");
-                    await Disconnect();
-                    await Task.Delay(1000); // Wait a bit before reconnecting
-                    await Connect();
-                    return;
-                }
-
-                // Send heartbeat
-                await SendPacket(new
-                {
-                    type = "HEARTBEAT"
-                });
-            }
-            catch (Exception ex)
-            {
-                logger.Error($"Error sending heartbeat: {ex.Message}");
-                // Try to reconnect on heartbeat failure
-                try
-                {
-                    await Disconnect();
-                    await Task.Delay(1000);
-                    await Connect();
-                }
-                catch { /* Suppress reconnection errors */ }
-            }
+            return _isConnected && _webSocket != null && _webSocket.State == WebSocketState.Open;
         }
 
-        // Send a packet to the server
-        private async Task SendPacket(object data)
-        {
-            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
-                return;
-
-            try
-            {
-                string json = JsonConvert.SerializeObject(data);
-                byte[] bytes = Encoding.UTF8.GetBytes(json);
-                await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, _cancellationTokenSource.Token);
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(this, $"Send error: {ex.Message}");
-                logger.Error($"WebSocket send error: {ex.Message}");
-            }
-        }
-
-        // Add state conversion helper
-        private bool ConvertStopbarStateToNetwork(Stopbar stopbar)
-        {
-            return stopbar.State;
-        }
-
-        // Update stopbar state and send to server
         public async Task UpdateStopbar(Stopbar stopbar)
         {
-            // Skip sending updates back to network if we're processing a network update
             if (_processingNetworkUpdate)
                 return;
 
@@ -281,10 +191,8 @@ namespace BARS.Util
                 objectId = stopbar.BARSId;
                 bool networkState = ConvertStopbarStateToNetwork(stopbar);
 
-                // Update local state
                 _localStopbarStates[objectId] = networkState;
 
-                // Create packet inside lock but send it after
                 packet = new
                 {
                     type = "STATE_UPDATE",
@@ -297,7 +205,6 @@ namespace BARS.Util
                 };
             }
 
-            // Send state update to server outside the lock
             if (_webSocket != null && _webSocket.State == WebSocketState.Open)
             {
                 await Task.Run(async () =>
@@ -308,57 +215,55 @@ namespace BARS.Util
             }
         }
 
-        // Receive and process messages from the server
-        private async Task ReceiveMessagesAsync()
+        private bool ConvertStopbarStateToNetwork(Stopbar stopbar)
         {
-            byte[] buffer = new byte[4096];
+            return stopbar.State;
+        }
 
+        private void ProcessInitialState(dynamic initialState)
+        {
             try
             {
-                while (_webSocket != null && _webSocket.State == WebSocketState.Open && !_cancellationTokenSource.Token.IsCancellationRequested)
+                string connectionType = initialState.data.connectionType;
+                logger.Log($"Connected as: {connectionType}");
+
+                Dictionary<string, object> stopbarStates = new Dictionary<string, object>();
+
+                if (initialState.data.objects != null && initialState.data.objects.Count > 0)
                 {
-                    WebSocketReceiveResult result = await _webSocket.ReceiveAsync(
-                        new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
-
-                    if (result.MessageType == WebSocketMessageType.Close)
+                    foreach (var obj in initialState.data.objects)
                     {
-                        await Disconnect();
-                        break;
+                        string objectId = obj.id;
+                        bool state = obj.state;
+                        stopbarStates[objectId] = state;
+
+                        ControllerHandler.RegisterStopbar(
+                            _airport,
+                            objectId,
+                            objectId,
+                            state,
+                            false
+                        );
                     }
 
-                    if (result.MessageType == WebSocketMessageType.Text)
-                    {
-                        string json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        ProcessMessageAsync(json);
-                    }
+                    logger.Log($"Received initial state with {stopbarStates.Count} stopbars for airport {_airport}");
                 }
-            }
-            catch (OperationCanceledException)
-            {
-                // Normal cancellation, do nothing
+                else
+                {
+                    logger.Log($"Received empty initial state for airport {_airport}");
+                }
+
+                _localStopbarStates = stopbarStates;
+
+                OnStateUpdate?.Invoke(this, stopbarStates);
             }
             catch (Exception ex)
             {
-                OnError?.Invoke(this, $"Receive error: {ex.Message}");
-                logger.Error($"WebSocket receive error: {ex.Message}");
-
-                // Try to reconnect
-                if (_isConnected)
-                {
-                    _isConnected = false;
-                    OnConnectionChanged?.Invoke(this, false);
-                    
-                    try
-                    {
-                        await Task.Delay(3000); // Wait before reconnecting
-                        await Connect();
-                    }
-                    catch { /* Suppress reconnection errors */ }
-                }
+                OnError?.Invoke(this, $"Initial state processing error: {ex.Message}");
+                logger.Log($"Initial state processing error: {ex.Message}");
             }
         }
 
-        // Process received WebSocket messages
         private async void ProcessMessageAsync(string json)
         {
             try
@@ -369,7 +274,7 @@ namespace BARS.Util
                 switch (messageType)
                 {
                     case "HEARTBEAT":
-                        // Server sent a heartbeat, acknowledge it
+
                         await SendPacket(new
                         {
                             type = "HEARTBEAT_ACK"
@@ -377,11 +282,10 @@ namespace BARS.Util
                         break;
 
                     case "HEARTBEAT_ACK":
-                        // Server acknowledged our heartbeat
+
                         _lastHeartbeatReceived = DateTime.Now;
                         break;
 
-                    // Rest of the cases remain the same
                     case "INITIAL_STATE":
                         ProcessInitialState(message);
                         break;
@@ -414,98 +318,39 @@ namespace BARS.Util
             }
         }
 
-
-        // Process initial state received from server
-        private void ProcessInitialState(dynamic initialState)
-        {
-            try
-            {
-                // Extract connection type
-                string connectionType = initialState.data.connectionType;
-                logger.Log($"Connected as: {connectionType}");
-
-                // Process received objects
-                Dictionary<string, object> stopbarStates = new Dictionary<string, object>();
-                
-                if (initialState.data.objects != null && initialState.data.objects.Count > 0)
-                {
-                    foreach (var obj in initialState.data.objects)
-                    {
-                        string objectId = obj.id;
-                        bool state = obj.state;
-                        stopbarStates[objectId] = state;
-
-                        // Register or update the stopbar with just the state
-                        ControllerHandler.RegisterStopbar(
-                            _airport,
-                            objectId, // Using ID as display name since we don't receive it
-                            objectId,
-                            state,
-                            false // Default autoRaise to false since we don't receive it
-                        );
-                    }
-                    
-                    logger.Log($"Received initial state with {stopbarStates.Count} stopbars for airport {_airport}");
-                }
-                else
-                {
-                    logger.Log($"Received empty initial state for airport {_airport}");
-                }
-
-                // Update the local state
-                _localStopbarStates = stopbarStates;
-
-                // Notify listeners
-                OnStateUpdate?.Invoke(this, stopbarStates);
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(this, $"Initial state processing error: {ex.Message}");
-                logger.Log($"Initial state processing error: {ex.Message}");
-            }
-        }
-
-        // Process state updates from other controllers
         private async void ProcessStateUpdate(dynamic stateUpdate)
         {
             try
             {
-                // Extract object details
                 string objectId = stateUpdate.data.objectId;
                 bool state = stateUpdate.data.state;
-                
-                // Skip if it's our own update
+
                 string controllerId = stateUpdate.data.controllerId;
                 if (controllerId == _controllerId)
                     return;
 
-                // Add a small delay to let any pending local updates complete
                 await Task.Delay(SERVER_UPDATE_DELAY);
 
                 lock (_updateLock)
                 {
-                    // Update local state
                     _localStopbarStates[objectId] = state;
-                    
-                    // Set flag before updating controller and reset after
+
                     _processingNetworkUpdate = true;
                     try
                     {
-                        // Update the ControllerHandler with just the state
-                        // Use server state as authoritative
                         ControllerHandler.SetStopbarState(
                             _airport,
                             objectId,
                             state,
-                            WindowType.Legacy, // Use Legacy as default for network updates
-                            false // Default autoRaise to false since we don't receive it
+                            WindowType.Legacy,
+                            false
                         );
                     }
                     finally
                     {
                         _processingNetworkUpdate = false;
                     }
-                    
+
                     logger.Log($"Received state update for stopbar {objectId} from controller {controllerId}");
                 }
             }
@@ -516,16 +361,121 @@ namespace BARS.Util
             }
         }
 
-        // Check if connected to the server
-        public bool IsConnected()
+        private async Task ReceiveMessagesAsync()
         {
-            return _isConnected && _webSocket != null && _webSocket.State == WebSocketState.Open;
+            byte[] buffer = new byte[4096];
+
+            try
+            {
+                while (_webSocket != null && _webSocket.State == WebSocketState.Open && !_cancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    WebSocketReceiveResult result = await _webSocket.ReceiveAsync(
+                        new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
+
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        await Disconnect();
+                        break;
+                    }
+
+                    if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        string json = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        ProcessMessageAsync(json);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(this, $"Receive error: {ex.Message}");
+                logger.Error($"WebSocket receive error: {ex.Message}");
+
+                if (_isConnected)
+                {
+                    _isConnected = false;
+                    OnConnectionChanged?.Invoke(this, false);
+
+                    try
+                    {
+                        await Task.Delay(3000);
+                        await Connect();
+                    }
+                    catch { /* Suppress reconnection errors */ }
+                }
+            }
         }
 
-        // Get all current stopbar states
-        public Dictionary<string, object> GetAllStopbarStates()
+        private async Task SendHeartbeat()
         {
-            return new Dictionary<string, object>(_localStopbarStates);
+            try
+            {
+                if ((DateTime.Now - _lastHeartbeatReceived).TotalMilliseconds > HEARTBEAT_TIMEOUT)
+                {
+                    logger.Log("Heartbeat timeout, reconnecting...");
+                    await Disconnect();
+                    await Task.Delay(1000);
+                    await Connect();
+                    return;
+                }
+
+                await SendPacket(new
+                {
+                    type = "HEARTBEAT"
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Error sending heartbeat: {ex.Message}");
+
+                try
+                {
+                    await Disconnect();
+                    await Task.Delay(1000);
+                    await Connect();
+                }
+                catch { /* Suppress reconnection errors */ }
+            }
+        }
+
+        private async Task SendPacket(object data)
+        {
+            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+                return;
+
+            try
+            {
+                string json = JsonConvert.SerializeObject(data);
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, _cancellationTokenSource.Token);
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(this, $"Send error: {ex.Message}");
+                logger.Error($"WebSocket send error: {ex.Message}");
+            }
+        }
+
+        private void StartHeartbeat()
+        {
+            _lastHeartbeatReceived = DateTime.Now;
+
+            _heartbeatTimer = new System.Timers.Timer(HEARTBEAT_INTERVAL);
+            _heartbeatTimer.Elapsed += async (sender, e) => await SendHeartbeat();
+            _heartbeatTimer.AutoReset = true;
+            _heartbeatTimer.Start();
+        }
+
+        private void StopHeartbeat()
+        {
+            if (_heartbeatTimer != null)
+            {
+                _heartbeatTimer.Stop();
+                _heartbeatTimer.Dispose();
+                _heartbeatTimer = null;
+            }
         }
     }
 }
