@@ -18,5 +18,59 @@ jobs:
       - name: Restore packages
         run: nuget restore
 
+      - name: Create vatSys stubs
+        run: |
+          # Create directory for vatSys
+          New-Item -Path "C:\Program Files (x86)\vatSys\bin" -ItemType Directory -Force
+
+          # Create vatSys stub assembly
+          $vatSysStub = @"
+          using System;
+          using System.Windows.Forms;
+          [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+          namespace vatsys {
+              public interface IPlugin { 
+                  string Name { get; }
+                  void OnFDRUpdate(FDP2 updated);
+                  void OnRadarTrackUpdate(RDP updated);
+              }
+              public class BaseForm : Form { }
+              public class CustomToolStripMenuItem : ToolStripMenuItem { }
+              public class FDP2 { }
+              public class RDP { }
+          }
+          namespace vatsys.Plugin {
+              // Plugin namespace
+          }
+          "@
+          $vatSysStub | Out-File -FilePath "vatSys_stub.cs" -Encoding UTF8
+
+          # Create VATSYSControls stub
+          $controlsStub = @"
+          using System;
+          using System.Windows.Forms;
+          [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+          namespace vatsys {
+              public class GenericButton : Button { }
+          }
+          "@
+          $controlsStub | Out-File -FilePath "controls_stub.cs" -Encoding UTF8
+
+          # Create RossCarlson.Vatsim.Network stub
+          $networkStub = @"
+          using System;
+          [assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+          namespace RossCarlson.Vatsim.Network {
+              public class NetworkData { }
+          }
+          "@
+          $networkStub | Out-File -FilePath "network_stub.cs" -Encoding UTF8
+
+          # Compile stubs
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe" /target:library /reference:"System.Windows.Forms.dll" /out:"C:\Program Files (x86)\vatSys\bin\vatSys.exe" vatSys_stub.cs
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe" /target:library /reference:"System.Windows.Forms.dll" /out:"C:\Program Files (x86)\vatSys\bin\VATSYSControls.dll" controls_stub.cs  
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\Roslyn\csc.exe" /target:library /out:"C:\Program Files (x86)\vatSys\bin\RossCarlson.Vatsim.Network.dll" network_stub.cs
+        shell: powershell
+
       - name: Build
         run: msbuild -p:Configuration=Release -p:Platform="Any CPU"
