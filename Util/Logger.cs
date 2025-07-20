@@ -14,20 +14,6 @@ namespace BARS.Util
             name = Name;
         }
 
-        public void Log(string msg)
-        {
-            try
-            {
-                using (StreamWriter w = File.AppendText($"{dirPath}\\BARS-V2.log"))
-                {
-                    w.WriteLine("{0} [{1}]: {2}", DateTime.UtcNow.ToLongTimeString(), name, msg);
-                }
-            }
-            catch
-            {
-            }
-        }
-
         public void Error(string msg)
         {
             try
@@ -40,6 +26,20 @@ namespace BARS.Util
 
                 // Report to vatsys error window
                 Errors.Add(new Exception(msg), "BARS");
+            }
+            catch
+            {
+            }
+        }
+
+        public void Log(string msg)
+        {
+            try
+            {
+                using (StreamWriter w = File.AppendText($"{dirPath}\\BARS-V2.log"))
+                {
+                    w.WriteLine("{0} [{1}]: {2}", DateTime.UtcNow.ToLongTimeString(), name, msg);
+                }
             }
             catch
             {
