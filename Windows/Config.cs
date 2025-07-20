@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Drawing;
-using System.Windows.Forms;
 using System.Linq;
-using vatsys;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+using vatsys;
 
 namespace BARS.Windows
 {
@@ -16,11 +16,59 @@ namespace BARS.Windows
         public Config()
         {
             InitializeComponent();
+            this.MiddleClickClose = false;
+
             StyleComponent();
             SyncAirportList();
-            
+
             // Add form closing handler
             this.FormClosing += Config_FormClosing;
+        }
+
+        public void SyncAirportList()
+        {
+            pnl_airports.Controls.Clear();
+
+            int index = 0;
+            foreach (string airport in BARS.ControlledAirports.Take(MAX_AIRPORTS))
+            {
+                CreateAirportEntry(airport, index);
+                index++;
+            }
+        }
+
+        private async Task AddAirport(string icao)
+        {
+            try
+            {
+                btn_add.Enabled = false;
+                btn_add.Size = new Size(82, 24);
+                btn_add.Text = "ADDING...";
+                await BARS.AddAirport(icao);
+                txt_icao.Clear();
+                txt_icao.Focus();
+                btn_add.Enabled = true;
+                btn_add.Size = new Size(48, 24);
+                btn_add.Text = "ADD";
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message, "BARS Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void apiKeyInput_TextChanged(object sender, EventArgs e)
+        {
+            BARS.UpdateApiKey(txt_key.Text.Trim());
+        }
+
+        private void btn_add_Click(object sender, EventArgs e)
+        {
+            string icao = txt_icao.Text.Trim().ToUpper();
+            if (!string.IsNullOrWhiteSpace(icao))
+            {
+                _ = AddAirport(icao);
+            }
         }
 
         private void Config_FormClosing(object sender, FormClosingEventArgs e)
@@ -39,27 +87,6 @@ namespace BARS.Windows
             }
         }
 
-        private void StyleComponent()
-        {
-            this.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            pnl_airports.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            
-            lbl_icao.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
-            lbl_icao.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            txt_icao.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            txt_icao.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
-            btn_add.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            btn_add.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
-            btn_add.FlatStyle = FlatStyle.Flat;
-            txt_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-            txt_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
-            lbl_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
-            lbl_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
-
-            // Set the text field to the stored API key
-            txt_key.Text = Properties.Settings.Default.APIKey;
-        }
-
         private void CreateAirportEntry(string icao, int index)
         {
             var label = new TextLabel
@@ -76,7 +103,7 @@ namespace BARS.Windows
             {
                 Text = "PROFILES",
                 Size = new Size(75, 24),
-                Location = new Point(pnl_airports.Width - 165, label.Location.Y), 
+                Location = new Point(pnl_airports.Width - 165, label.Location.Y),
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
@@ -88,17 +115,17 @@ namespace BARS.Windows
             {
                 if (s is GenericButton btn)
                 {
-                    // Use the BARS class method instead of duplicating code  
+                    // Use the BARS class method instead of duplicating code
                     BARS.ShowProfilesWindow(btn.Tag.ToString());
                 }
             };
 
-            // Remove button  
+            // Remove button
             var btnRemove = new GenericButton
             {
                 Text = "REMOVE",
                 Size = new Size(60, 24),
-                Location = new Point(pnl_airports.Width - 87, label.Location.Y), 
+                Location = new Point(pnl_airports.Width - 87, label.Location.Y),
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
@@ -126,58 +153,33 @@ namespace BARS.Windows
             pnl_airports.Controls.Add(btnRemove);
         }
 
-        public void SyncAirportList()
+        private void StyleComponent()
         {
-            pnl_airports.Controls.Clear();
-            
-            int index = 0;
-            foreach (string airport in BARS.ControlledAirports.Take(MAX_AIRPORTS))
-            {
-                CreateAirportEntry(airport, index);
-                index++;
-            }
-        }
-        
-        private void btn_add_Click(object sender, EventArgs e)
-        {
-            string icao = txt_icao.Text.Trim().ToUpper();
-            if (!string.IsNullOrWhiteSpace(icao))
-            {
-                _ = AddAirport(icao);
-            }
-        }
+            this.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            pnl_airports.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
 
-        private async Task AddAirport(string icao)
-        {
-            try
-            {
-                btn_add.Enabled = false;
-                btn_add.Size = new Size(82, 24);
-                btn_add.Text = "ADDING...";
-                await BARS.AddAirport(icao);
-                txt_icao.Clear();
-                txt_icao.Focus();
-                btn_add.Enabled = true;
-                btn_add.Size = new Size(48, 24);
-                btn_add.Text = "ADD";
-            }
-            catch (Exception e)
-            {
-                MessageBox.Show(e.Message, "BARS Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+            lbl_icao.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            lbl_icao.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            txt_icao.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            txt_icao.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            btn_add.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            btn_add.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            btn_add.FlatStyle = FlatStyle.Flat;
+            txt_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            txt_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            lbl_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            lbl_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+
+            // Set the text field to the stored API key
+            txt_key.Text = Properties.Settings.Default.APIKey;
         }
 
         private void txt_icao_KeyPress(object sender, KeyPressEventArgs e)
         {
-            if (e.KeyChar == (char) Keys.Enter)
+            if (e.KeyChar == (char)Keys.Enter)
             {
                 btn_add_Click(sender, e);
             }
-        }
-
-        private void apiKeyInput_TextChanged(object sender, EventArgs e)
-        {
-            BARS.UpdateApiKey(txt_key.Text.Trim());
         }
     }
 }

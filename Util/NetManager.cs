@@ -10,6 +10,11 @@ namespace BARS.Util
         private readonly Dictionary<string, NetHandler> _connections;
         private string _apiKey;
 
+        private NetManager()
+        {
+            _connections = new Dictionary<string, NetHandler>();
+        }
+
         public static NetManager Instance
         {
             get
@@ -26,16 +31,6 @@ namespace BARS.Util
                 }
                 return _instance;
             }
-        }
-
-        private NetManager()
-        {
-            _connections = new Dictionary<string, NetHandler>();
-        }
-
-        public void Initialize(string apiKey)
-        {
-            _apiKey = apiKey;
         }
 
         public async Task<NetHandler> ConnectAirport(string airport, string controllerId)
@@ -62,7 +57,7 @@ namespace BARS.Util
             // Create new connection
             var handler = new NetHandler(airport);
             handler.Initialize(_apiKey, airport, controllerId);
-            
+
             bool connected = await handler.Connect();
             if (connected)
             {
@@ -91,20 +86,25 @@ namespace BARS.Util
             _connections.Clear();
         }
 
+        public IEnumerable<string> GetConnectedAirports()
+        {
+            return _connections.Keys;
+        }
+
         public NetHandler GetConnection(string airport)
         {
             _connections.TryGetValue(airport, out NetHandler handler);
             return handler;
         }
 
+        public void Initialize(string apiKey)
+        {
+            _apiKey = apiKey;
+        }
+
         public bool IsAirportConnected(string airport)
         {
             return _connections.TryGetValue(airport, out NetHandler handler) && handler.IsConnected();
-        }
-
-        public IEnumerable<string> GetConnectedAirports()
-        {
-            return _connections.Keys;
         }
     }
 }

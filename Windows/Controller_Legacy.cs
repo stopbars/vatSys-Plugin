@@ -38,11 +38,12 @@ namespace BARS.Windows
             this.Airport = Airport;
             this.ActiveProfile = Profile;
             this.Text = $"BARS - {Airport} - {Profile}";
+            this.MiddleClickClose = false;
             _ = InitializeStyle();
             _ = SetupResizeHandling();
             _ = LoadProfile();
         }
-        
+
         async Task SetupResizeHandling()
         {
             resizeTimer.Interval = 100;
@@ -72,7 +73,7 @@ namespace BARS.Windows
             {
                 string profilePath = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "BARS", "vatSys", $"{Airport}_{ActiveProfile.Replace("/","-")}.xml");
+                    "BARS", "vatSys", $"{Airport}_{ActiveProfile.Replace("/", "-")}.xml");
 
                 if (!File.Exists(profilePath))
                 {
@@ -613,11 +614,11 @@ namespace BARS.Windows
             {
                 // Unsubscribe from events to prevent memory leaks
                 ControllerHandler.StopbarStateChanged -= StopbarStateChanged;
-                
+
                 resizeTimer.Dispose();
             }
         }
-        
+
         private void StopbarStateChanged(object sender, StopbarEventArgs e)
         {
             // Only process events for this airport and window type
@@ -627,7 +628,7 @@ namespace BARS.Windows
                 UpdateStopbarUI(e.Stopbar);
             }
         }
-        
+
         void UpdateStopbarUI(Stopbar stopbar)
         {
             // Need to invoke on the UI thread if called from a background thread
@@ -645,7 +646,7 @@ namespace BARS.Windows
                     // Use exact matching patterns for each control type
                     string taxiName = $"pnl_{stopbar.BARSId}_taxi";
                     string triName = $"pnl_{stopbar.BARSId}_tri";
-                    
+
                     if (control.Name == taxiName)
                     {
                         control.BackgroundImage = stopbar.State ? null : Properties.Resources.LeadOn;
@@ -664,12 +665,12 @@ namespace BARS.Windows
                 }
             }
         }
-        
+
         public void ToggleStopbar(string barsId, bool autoRaise = true)
         {
             ControllerHandler.ToggleStopbar(this.Airport, barsId, WindowType.Legacy, autoRaise);
         }
-        
+
         public void SetStopbarState(string barsId, bool state, bool autoRaise = true)
         {
             ControllerHandler.SetStopbarState(this.Airport, barsId, state, WindowType.Legacy, autoRaise);
