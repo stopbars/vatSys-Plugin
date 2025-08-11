@@ -91,6 +91,7 @@
     <Compile Include="Util\AirportMapData.cs" />
     <Compile Include="Util\ControllerHandler.cs" />
     <Compile Include="Util\Logger.cs" />
+  <Compile Include="Util\NetworkSyncManager.cs" />
     <Compile Include="Util\NetHandler.cs" />
     <Compile Include="Util\NetManager.cs" />
     <Compile Include="Windows\AirportMapControl.cs">

@@ -7,6 +7,7 @@ namespace BARS.Util
     public class NetManager
     {
         private static NetManager _instance;
+        private static readonly object _lock = new object();
         private readonly Dictionary<string, NetHandler> _connections;
         private string _apiKey;
 

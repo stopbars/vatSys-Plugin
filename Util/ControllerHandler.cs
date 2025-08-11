@@ -17,6 +17,8 @@ namespace BARS.Util
         private static Dictionary<string, Dictionary<string, Stopbar>> _stopbars = new Dictionary<string, Dictionary<string, Stopbar>>();
 
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
+        // Event for new stopbar registration
+        public static event EventHandler<StopbarEventArgs> StopbarRegistered;
 
         public static Stopbar GetStopbar(string airport, string barsId)
         {
@@ -38,7 +40,19 @@ namespace BARS.Util
             return new List<Stopbar>();
         }
 
+        /// <summary>
+        /// Registers a stopbar in the system (legacy signature without LeadOnId)
+        /// </summary>
         public static void RegisterStopbar(string airport, string displayName, string barsId, bool initialState = true, bool autoRaise = true)
+        {
+            RegisterStopbar(airport, displayName, barsId, null, initialState, autoRaise);
+        }
+
+        /// <summary>
+        /// Registers a stopbar with an optional associated lead-on light.
+        /// Lead-on state is defined as the logical inverse of the stopbar state.
+        /// </summary>
+        public static void RegisterStopbar(string airport, string displayName, string barsId, string leadOnId, bool initialState = true, bool autoRaise = true)
         {
             if (!_stopbars.ContainsKey(airport))
             {
@@ -47,13 +61,54 @@ namespace BARS.Util
 
             if (!_stopbars[airport].ContainsKey(barsId))
             {
-                var stopbar = new Stopbar(airport, displayName, barsId, initialState, autoRaise);
+                var stopbar = new Stopbar(airport, displayName, barsId, leadOnId, initialState, autoRaise);
                 stopbar.AutoRaiseTimer.Elapsed += (sender, e) => HandleAutoRaise(stopbar.Airport, stopbar.BARSId);
                 _stopbars[airport][barsId] = stopbar;
-                _logger.Log($"Registered stopbar {barsId} for {airport} with initial state: {(initialState ? "ON" : "OFF")}, AutoRaise: {autoRaise}");
+                _logger.Log($"Registered stopbar {barsId} for {airport} with initial state: {(initialState ? "ON" : "OFF")}, AutoRaise: {autoRaise}, LeadOn: {(!string.IsNullOrEmpty(leadOnId) ? leadOnId : "<none>")}");
+                StopbarRegistered?.Invoke(null, new StopbarEventArgs(stopbar, WindowType.Legacy));
+                // If NetHandler is in deferred seed mode, inform it so it can seed this stopbar now
+                var netHandler = NetManager.Instance.GetConnection(airport);
+                if (netHandler != null)
+                {
+                    netHandler.NotifyStopbarRegistered(stopbar);
+                }
+            }
+            else
+            {
+                // Already exists (likely from server INITIAL_STATE). If we now have a LeadOnId from profile and it wasn't set, update it.
+                var existing = _stopbars[airport][barsId];
+                bool leadOnAdded = false;
+                if (!string.IsNullOrEmpty(leadOnId) && string.IsNullOrEmpty(existing.LeadOnId))
+                {
+                    existing.LeadOnId = leadOnId;
+                    leadOnAdded = true;
+                    _logger.Log($"Updated stopbar {barsId} for {airport} with late LeadOnId: {leadOnId} (profile loaded after initial registration).");
+                }
+                // Optionally update display name if differs (profile may have nicer name)
+                if (!string.IsNullOrEmpty(displayName) && existing.DisplayName != displayName)
+                {
+                    existing.DisplayName = displayName;
+                }
+                // If we added a lead-on id, push a fresh state update so server now knows inverse pair.
+                if (leadOnAdded)
+                {
+                    var netHandler = NetManager.Instance.GetConnection(airport);
+                    if (netHandler != null && netHandler.IsConnected())
+                    {
+                        _ = netHandler.UpdateStopbar(existing, true); // force leadOnState=false on first send
+                    }
+                }
             }
         }
 
+        /// <summary>
+        /// Sets the state of a stopbar explicitly and raises the appropriate event
+        /// </summary>
+        /// <param name="airport">Airport ICAO code</param>
+        /// <param name="barsId">Stopbar ID</param>
+        /// <param name="state">Desired state (true = on, false = off)</param>
+        /// <param name="windowType">Window type (Legacy or INTAS)</param>
+        /// <param name="autoRaise">Whether to auto-raise the stopbar after 45 seconds if turned off</param>
         public static void SetStopbarState(string airport, string barsId, bool state, WindowType windowType, bool autoRaise = true)
         {
             var stopbar = GetStopbar(airport, barsId);
@@ -135,11 +190,12 @@ namespace BARS.Util
 
     public class Stopbar
     {
-        public Stopbar(string airport, string displayName, string barsId, bool initialState = true, bool autoRaise = true)
+        public Stopbar(string airport, string displayName, string barsId, string leadOnId = null, bool initialState = true, bool autoRaise = true)
         {
             Airport = airport;
             DisplayName = displayName;
             BARSId = barsId;
+            LeadOnId = leadOnId;
             State = initialState;
             AutoRaise = autoRaise;
             AutoRaiseTimer = new Timer(45000);
@@ -152,6 +208,14 @@ namespace BARS.Util
 
         public string BARSId { get; set; }
 
+        /// <summary>
+        /// Optional lead-on identifier. Lead-on is considered ON when stopbar is OFF.
+        /// </summary>
+        public string LeadOnId { get; set; }
+
+        /// <summary>
+        /// Display name of the stopbar
+        /// </summary>
         public string DisplayName { get; set; }
 
         public bool State { get; set; }

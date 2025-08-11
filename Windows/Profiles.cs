@@ -10,13 +10,18 @@ namespace BARS.Windows
 {
     public partial class Profiles : BaseForm
     {
+        // Make airportIcao public so it can be accessed by BARS
+        public string AirportIcao { get; private set; }
+        public List<string> SelectedProfiles { get; private set; } = new List<string>();
         private const int PROFILE_ENTRY_HEIGHT = 30;
 
         private const int PROFILE_ENTRY_SPACING = 5;
 
         private bool isDisposing = false;
 
-        private Dictionary<string, GenericButton> profileButtons = new Dictionary<string, GenericButton>(); public Profiles(string icao)
+        private Dictionary<string, GenericButton> profileButtons = new Dictionary<string, GenericButton>();
+
+        public Profiles(string icao)
         {
             InitializeComponent();
             this.AirportIcao = icao;
@@ -49,12 +54,6 @@ namespace BARS.Windows
 
 
         public event EventHandler<ProfileSelectedEventArgs> ProfileSelected;
-
-
-        public string AirportIcao { get; private set; }
-
-        public List<string> SelectedProfiles { get; private set; } = new List<string>();
-
 
         public void ResetAllSelections()
         {
@@ -167,7 +166,7 @@ namespace BARS.Windows
             }
             base.Dispose(disposing);
         }
-        
+
         private void BARS_ControllerWindowClosed(object sender, ControllerWindowEventArgs e)
         {
 

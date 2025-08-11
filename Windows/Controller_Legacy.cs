@@ -93,6 +93,9 @@ namespace BARS.Windows
 
                 // Register all stopbars with the system
                 RegisterStopbars(doc);
+
+                // Initial seeding of server state is now handled inside NetHandler when an empty
+                // INITIAL_STATE is received. We no longer push here to avoid duplicate updates.
             }
             catch (Exception ex)
             {
@@ -200,6 +203,37 @@ namespace BARS.Windows
                 // Accept several possible tag name variants in case the profile XML differs
                 string[] leadOnTagCandidates = new[] { "LeadOnId", "LeadOnID", "LeadOn", "LeadonId", "LeadOnid" };
                 XmlNode leadOnNode = null;
+                foreach (var candidate in leadOnTagCandidates)
+                {
+                    leadOnNode = stopbar.SelectSingleNode(candidate);
+                    if (leadOnNode != null) break;
+                }
+                if (leadOnNode != null)
+                {
+                    leadOnId = leadOnNode.InnerText?.Trim();
+                    if (string.IsNullOrEmpty(leadOnId))
+                    {
+                        logger.Log($"Profile stopbar {barsId}: Found lead-on tag '{leadOnNode.Name}' but it was empty – ignoring.");
+                        leadOnId = null; // ignore empty tag
+                    }
+                    else
+                    {
+                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}' from tag '{leadOnNode.Name}'.");
+                    }
+                }
+                else
+                {
+                    logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found (looked for: {string.Join(", ", leadOnTagCandidates)}).");
+                }
+
+                if (!string.IsNullOrEmpty(leadOnId))
+                {
+                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, leadOnId, true);
+                }
+                else
+                {
+                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+                }
                 foreach (var candidate in leadOnTagCandidates)
                 {
                     leadOnNode = stopbar.SelectSingleNode(candidate);
