@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -102,7 +102,6 @@ namespace BARS.Windows
 
             await Task.Yield();
         }
-
         private void ConfigureRunways(XmlDocument doc)
         {
             // Configure horizontal runway
@@ -197,7 +196,41 @@ namespace BARS.Windows
             {
                 string barsId = stopbar.SelectSingleNode("BARSId").InnerText;
                 string displayName = stopbar.SelectSingleNode("DisplayName").InnerText;
-                ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+                string leadOnId = null;
+                // Accept several possible tag name variants in case the profile XML differs
+                string[] leadOnTagCandidates = new[] { "LeadOnId", "LeadOnID", "LeadOn", "LeadonId", "LeadOnid" };
+                XmlNode leadOnNode = null;
+                foreach (var candidate in leadOnTagCandidates)
+                {
+                    leadOnNode = stopbar.SelectSingleNode(candidate);
+                    if (leadOnNode != null) break;
+                }
+                if (leadOnNode != null)
+                {
+                    leadOnId = leadOnNode.InnerText?.Trim();
+                    if (string.IsNullOrEmpty(leadOnId))
+                    {
+                        logger.Log($"Profile stopbar {barsId}: Found lead-on tag '{leadOnNode.Name}' but it was empty – ignoring.");
+                        leadOnId = null; // ignore empty tag
+                    }
+                    else
+                    {
+                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}' from tag '{leadOnNode.Name}'.");
+                    }
+                }
+                else
+                {
+                    logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found (looked for: {string.Join(", ", leadOnTagCandidates)}).");
+                }
+
+                if (!string.IsNullOrEmpty(leadOnId))
+                {
+                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, leadOnId, true);
+                }
+                else
+                {
+                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
+                }
             }
 
             XmlNodeList crossbars = doc.SelectNodes("//CrossbarsConfig/Crossbar");

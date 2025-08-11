@@ -24,7 +24,6 @@ namespace BARS.Util
                     w.WriteLine("{0} [ERROR] [{1}]: {2}", DateTime.UtcNow.ToLongTimeString(), name, msg);
                 }
 
-                // Report to vatsys error window
                 Errors.Add(new Exception(msg), "BARS");
             }
             catch

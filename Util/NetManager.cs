@@ -21,12 +21,9 @@ namespace BARS.Util
             {
                 if (_instance == null)
                 {
-                    lock (_lock)
+                    if (_instance == null)
                     {
-                        if (_instance == null)
-                        {
-                            _instance = new NetManager();
-                        }
+                        _instance = new NetManager();
                     }
                 }
                 return _instance;
@@ -40,7 +37,6 @@ namespace BARS.Util
                 throw new InvalidOperationException("NetManager must be initialized with an API key first");
             }
 
-            // Check if connection already exists
             if (_connections.TryGetValue(airport, out NetHandler existingHandler))
             {
                 if (existingHandler.IsConnected())
@@ -49,12 +45,10 @@ namespace BARS.Util
                 }
                 else
                 {
-                    // Remove disconnected handler
                     await DisconnectAirport(airport);
                 }
             }
 
-            // Create new connection
             var handler = new NetHandler(airport);
             handler.Initialize(_apiKey, airport, controllerId);
 

@@ -1,16 +1,19 @@
-﻿namespace BARS.Windows
+﻿using System.Drawing;
+using vatsys;
+
+namespace BARS.Windows
 {
     partial class Controller_INTAS
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
+
+
+
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+
+
+
+
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -22,25 +25,40 @@
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
+
+
+
         private void InitializeComponent()
         {
+            this.airportMapControl = new AirportMapControl();
             this.SuspendLayout();
-            // 
-            // Controller_INTAS
-            // 
+
+
+
+            this.airportMapControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.airportMapControl.BackColor = Color.FromArgb(93, 93, 93);
+            this.airportMapControl.Location = new System.Drawing.Point(12, 12);
+            this.airportMapControl.Name = "airportMapControl";
+            this.airportMapControl.Size = new System.Drawing.Size(500, 500);
+            this.airportMapControl.TabIndex = 0;
+
+
+
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(545, 428);
+            this.ClientSize = new System.Drawing.Size(500, 560);
+            this.MinimumSize = new System.Drawing.Size(250, 250);
+            this.Controls.Add(this.airportMapControl);
+            this.HasMaximizeButton = true;
+            this.MiddleClickClose = false;
             this.Name = "Controller_INTAS";
             this.Text = "Controller_INTAS";
             this.ResumeLayout(false);
-
         }
-
         #endregion
+
+        private AirportMapControl airportMapControl;
     }
 }

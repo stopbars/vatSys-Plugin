@@ -21,7 +21,6 @@ namespace BARS.Windows
             StyleComponent();
             SyncAirportList();
 
-            // Add form closing handler
             this.FormClosing += Config_FormClosing;
         }
 
@@ -97,11 +96,11 @@ namespace BARS.Windows
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 ForeColor = Colours.GetColour(Colours.Identities.InteractiveText)
             };
+            bool isLegacy = icao == "YSSY" || icao == "YSCB";
 
-            // Profiles button
             var btnProfiles = new GenericButton
             {
-                Text = "PROFILES",
+                Text = isLegacy ? "PROFILES" : "OPEN",
                 Size = new Size(75, 24),
                 Location = new Point(pnl_airports.Width - 165, label.Location.Y),
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
@@ -115,12 +114,20 @@ namespace BARS.Windows
             {
                 if (s is GenericButton btn)
                 {
-                    // Use the BARS class method instead of duplicating code
-                    BARS.ShowProfilesWindow(btn.Tag.ToString());
+                    string airportIcao = btn.Tag.ToString();
+                    bool isLegacyAirport = airportIcao == "YSSY" || airportIcao == "YSCB";
+
+                    if (isLegacyAirport)
+                    {
+                        BARS.ShowProfilesWindow(airportIcao);
+                    }
+                    else
+                    {
+                        BARS.OpenINTASAirport(airportIcao);
+                    }
                 }
             };
 
-            // Remove button
             var btnRemove = new GenericButton
             {
                 Text = "REMOVE",
@@ -170,7 +177,6 @@ namespace BARS.Windows
             lbl_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             lbl_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
 
-            // Set the text field to the stored API key
             txt_key.Text = Properties.Settings.Default.APIKey;
         }
 

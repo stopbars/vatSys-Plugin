@@ -20,23 +20,13 @@ namespace BARS
     [Export(typeof(IPlugin))]
     public class BARS : IPlugin
     {
-        // Config Window
         public static Config config;
-
-        // List of profile windows currently open
         public static List<Profiles> ProfileWindows = new List<Profiles>();
-
         public CustomToolStripMenuItem configMenu;
         private const int MAX_AIRPORTS = 5;
-
-        // Dictionary to track which profile is active for each airport
         private static Dictionary<string, string> ActiveProfiles = new Dictionary<string, string>();
-
         private static List<Controller_INTAS> INTASWindows = new List<Controller_INTAS>();
-
-        // List of controller windows
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
-
         private readonly Logger logger = new Logger("BARS for vatSys");
         private readonly NetManager netManager = NetManager.Instance;
 
@@ -45,32 +35,24 @@ namespace BARS
             string dataPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "BARS"
-            );
-
-            // Register network event handlers
-            vatsys.Network.Connected += Vatsys_ConnectionChanged;
+            ); vatsys.Network.Connected += Vatsys_ConnectionChanged;
             vatsys.Network.Disconnected += Vatsys_ConnectionChanged;
 
-            // Initialize directories
             Directory.CreateDirectory(dataPath);
             Directory.CreateDirectory(Path.Combine(dataPath, "vatSys-Airports"));
             if (File.Exists($"{dataPath}\\BARS-V2.log")) File.Delete($"{dataPath}\\BARS-V2.log");
 
-            // Initialize NetManager with API key from settings
             netManager.Initialize(Properties.Settings.Default.APIKey);
 
             logger.Log("Starting BARS for vatSys...");
             _ = Start();
         }
 
-        // Event that fires when controller window is closed
         public static event EventHandler<ControllerWindowEventArgs> ControllerWindowClosed;
 
-        // Dictionary to track active profiles for each airport
         public static Dictionary<string, Dictionary<string, string>> AirportProfiles { get; private set; } =
-            new Dictionary<string, Dictionary<string, string>>();
-
-        // List of airports being controlled
+        new Dictionary<string, Dictionary<string, string>>();
+          
         public static List<string> ControlledAirports { get; private set; } = new List<string>();
 
         public string DisplayName => "BARS for vatSys";
@@ -79,37 +61,39 @@ namespace BARS
         public static async Task<bool> AddAirport(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
-                return false;
+                return false; string formattedIcao = icao.Trim().ToUpper();
 
-            string formattedIcao = icao.Trim().ToUpper();
-
-            // Check if it already exists
             if (ControlledAirports.Contains(formattedIcao))
                 return false;
 
-            // Check if we've reached the maximum limit
             if (ControlledAirports.Count >= MAX_AIRPORTS)
                 return false;
 
-            // Ensure WebSocket connection exists for this airport
             var netHandler = await NetManager.Instance.ConnectAirport(formattedIcao, Network.ControllerId);
             if (netHandler == null)
             {
-                // Connection failed
                 return false;
             }
 
-            // Add to the list
             ControlledAirports.Add(formattedIcao);
-
-            // Update the config window if it's open
             if (config != null && !config.IsDisposed)
             {
                 config.SyncAirportList();
             }
 
-            // Show the profile selection window instead of directly opening a controller
-            MMI.InvokeOnGUI(() => ShowProfilesWindow(formattedIcao));
+            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+
+            MMI.InvokeOnGUI(() =>
+            {
+                if (isLegacy)
+                {
+                    ShowProfilesWindow(formattedIcao);
+                }
+                else
+                {
+                    OpenINTASAirport(formattedIcao);
+                }
+            });
 
             return true;
         }
@@ -127,7 +111,6 @@ namespace BARS
             config.Show(Form.ActiveForm);
         }
 
-        // Method to get the active profile for an airport
         public static string GetActiveProfile(string airport)
         {
             string formattedIcao = airport.Trim().ToUpper();
@@ -138,7 +121,6 @@ namespace BARS
             return null;
         }
 
-        // Method to get all open profiles for an airport
         public static List<string> GetOpenProfiles(string airport)
         {
             List<string> result = new List<string>();
@@ -188,15 +170,11 @@ namespace BARS
             }
         }
 
-        // Method to open a controller window with a specific runway profile
         public static void OpenControllerWithProfile(string airport, string profileName)
         {
             if (string.IsNullOrWhiteSpace(airport) || string.IsNullOrWhiteSpace(profileName))
-                return;
+                return; string formattedIcao = airport.Trim().ToUpper();
 
-            string formattedIcao = airport.Trim().ToUpper();
-
-            // Track the active profile for this airport
             if (ActiveProfiles.ContainsKey(formattedIcao))
             {
                 ActiveProfiles[formattedIcao] = profileName;
@@ -206,12 +184,10 @@ namespace BARS
                 ActiveProfiles.Add(formattedIcao, profileName);
             }
 
-            // Determine if this airport uses Legacy or INTAS controller
             bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
 
             if (isLegacy)
             {
-                // Check if a controller window with this profile already exists
                 Controller_Legacy existingController = LegacyWindows.FirstOrDefault(c =>
                     c.Airport == formattedIcao && c.ActiveProfile == profileName);
 
@@ -222,7 +198,6 @@ namespace BARS
                     return;
                 }
 
-                // Create a new controller window
                 Controller_Legacy newController = new Controller_Legacy(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 LegacyWindows.Add(newController);
@@ -230,7 +205,6 @@ namespace BARS
             }
             else
             {
-                // Check if a controller window with this profile already exists
                 Controller_INTAS existingController = INTASWindows.FirstOrDefault(c =>
                     c.Airport == formattedIcao && c.ActiveProfile == profileName);
 
@@ -241,39 +215,67 @@ namespace BARS
                     return;
                 }
 
-                // Create a new controller window
                 Controller_INTAS newController = new Controller_INTAS(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 INTASWindows.Add(newController);
                 newController.Show(Form.ActiveForm);
             }
 
-            // Update any open profile windows for this airport
             var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
             if (profileWindow != null && !profileWindow.IsDisposed)
             {
                 MMI.InvokeOnGUI(() => profileWindow.SyncActiveProfilesStatus());
             }
         }
+        public static void OpenINTASAirport(string icao)
+        {
+            if (string.IsNullOrWhiteSpace(icao))
+                return; string formattedIcao = icao.Trim().ToUpper();
+
+            if (!ControlledAirports.Contains(formattedIcao))
+                return;
+
+            string barsProfilePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "BARS",
+                "vatSys");
+
+            string profileFilePath = Path.Combine(barsProfilePath, $"{formattedIcao}.xml");
+
+            if (!File.Exists(profileFilePath))
+            {
+                MessageBox.Show($"No profile found for {formattedIcao}.\nExpected file: {formattedIcao}.xml",
+                    "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Controller_INTAS existingController = INTASWindows.FirstOrDefault(c => c.Airport == formattedIcao);
+
+            if (existingController != null)
+            {
+                existingController.Show(Form.ActiveForm);
+                existingController.BringToFront();
+                return;
+            }
+
+            Controller_INTAS newController = new Controller_INTAS(formattedIcao, formattedIcao);
+            newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, formattedIcao);
+            INTASWindows.Add(newController);
+            newController.Show(Form.ActiveForm);
+        }
 
         public static async Task RemoveAirport(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
-                return;
+                return; string formattedIcao = icao.Trim().ToUpper();
 
-            string formattedIcao = icao.Trim().ToUpper();
-
-            // Check if it exists
             if (!ControlledAirports.Contains(formattedIcao))
                 return;
 
-            // Remove from the list
             ControlledAirports.Remove(formattedIcao);
 
-            // Disconnect WebSocket for this airport
             await NetManager.Instance.DisconnectAirport(formattedIcao);
 
-            // Update the config window if it's open
             if (config != null && !config.IsDisposed)
             {
                 config.SyncAirportList();
@@ -321,17 +323,12 @@ namespace BARS
         public static void RemoveControllerWindows(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
-                return;
-
-            string formattedIcao = icao.Trim().ToUpper();
-
-            // Remove any active profiles for this airport
+                return; string formattedIcao = icao.Trim().ToUpper();
             if (ActiveProfiles.ContainsKey(formattedIcao))
             {
                 ActiveProfiles.Remove(formattedIcao);
             }
 
-            // Close all controller windows for this airport regardless of profile
             if (formattedIcao == "YSSY" || formattedIcao == "YSCB")
             {
                 var controllersToRemove = LegacyWindows.Where(c => c.Airport == formattedIcao).ToList();
@@ -351,7 +348,6 @@ namespace BARS
                 }
             }
 
-            // Update any open profile windows
             var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
             if (profileWindow != null && !profileWindow.IsDisposed)
             {
@@ -363,13 +359,11 @@ namespace BARS
         {
             string formattedIcao = airport.Trim().ToUpper();
 
-            // If this is the active profile, remove it from the active profiles
             if (ActiveProfiles.ContainsKey(formattedIcao) && ActiveProfiles[formattedIcao] == profileName)
             {
                 ActiveProfiles.Remove(formattedIcao);
             }
 
-            // Remove the controller window for this profile
             bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
             if (isLegacy)
             {
@@ -394,7 +388,6 @@ namespace BARS
                 }
             }
 
-            // Update any open profile windows
             var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
             if (profileWindow != null && !profileWindow.IsDisposed)
             {
@@ -404,27 +397,22 @@ namespace BARS
 
         public static void ShowProfilesWindow(string icao)
         {
-            // Check if there's already a profile window open for this airport
             var existingWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == icao);
             if (existingWindow != null && !existingWindow.IsDisposed)
             {
                 existingWindow.Show(Form.ActiveForm);
                 existingWindow.BringToFront();
 
-                // Make sure to update all profile statuses
                 existingWindow.SyncActiveProfilesStatus();
                 return;
             }
 
-            // Create a new profile window
             var profileWindow = new Profiles(icao);
             profileWindow.ProfileSelected += (s, e) =>
             {
-                // When a profile is selected, open a controller window with that profile
                 OpenControllerWithProfile(e.Airport, e.ProfileName);
             };
 
-            // Only remove from list when truly disposing
             profileWindow.Disposed += (s, e) =>
             {
                 if (s is Profiles p)
@@ -437,7 +425,6 @@ namespace BARS
             profileWindow.Show(Form.ActiveForm);
         }
 
-        // Update API key setting and reinitialize NetManager
         public static void UpdateApiKey(string newApiKey)
         {
             Properties.Settings.Default.APIKey = newApiKey;
@@ -453,20 +440,16 @@ namespace BARS
         {
         }
 
-        // Helper method to handle controller window closed
         private static void HandleControllerWindowClosed(object sender, string airport, string profile)
         {
-            // Remove from active profiles if this is the active profile
             if (ActiveProfiles.ContainsKey(airport) &&
                 (profile == null || ActiveProfiles[airport] == profile))
             {
                 ActiveProfiles.Remove(airport);
             }
 
-            // Notify listeners
             ControllerWindowClosed?.Invoke(null, new ControllerWindowEventArgs(airport, profile));
 
-            // Remove the window from the list
             if (sender is Controller_Legacy legacyController)
             {
                 LegacyWindows.Remove(legacyController);
@@ -476,14 +459,11 @@ namespace BARS
                 INTASWindows.Remove(intasController);
             }
 
-            // Update any open profile windows for this airport
             UpdateProfileWindowSelections(airport, profile);
         }
 
-        // Method to update profile window selections when a controller is closed
         private static void UpdateProfileWindowSelections(string airport, string profile)
         {
-            // Find any profile windows for this airport and update their selection state
             var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == airport);
             if (profileWindow != null && !profileWindow.IsDisposed)
             {
@@ -491,12 +471,10 @@ namespace BARS
                 {
                     if (profile != null)
                     {
-                        // Just reset the specific profile that was closed
                         profileWindow.ResetProfileSelection(profile);
                     }
                     else
                     {
-                        // Sync with all current open profiles for this airport
                         profileWindow.SyncActiveProfilesStatus();
                     }
                 });
@@ -514,7 +492,6 @@ namespace BARS
             {
                 logger.Log("Populating the vatSys toolstrip...");
 
-                // Add buttons to vatSys toolstrip
                 configMenu = new CustomToolStripMenuItem(
                     CustomToolStripMenuItemWindowType.Main,
                     CustomToolStripMenuItemCategory.Custom,
@@ -547,7 +524,6 @@ namespace BARS
 
                 MMI.InvokeOnGUI(async () =>
                 {
-                    // Additional safety check inside the invoke
                     while (configMenu?.Item == null)
                     {
                         await Task.Delay(100);
@@ -565,7 +541,6 @@ namespace BARS
             {
                 logger.Log("Disconnected");
 
-                // Create a copy of airports to avoid collection modification during enumeration
                 var airportsToRemove = ControlledAirports.ToList();
                 var ProfileWindowsToRemove = ProfileWindows.ToList();
 
@@ -589,7 +564,6 @@ namespace BARS
         }
     }
 
-    // Event args for controller window events
     public class ControllerWindowEventArgs : EventArgs
     {
         public ControllerWindowEventArgs(string airport, string profile)
