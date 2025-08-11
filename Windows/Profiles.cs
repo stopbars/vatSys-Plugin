@@ -14,7 +14,6 @@ namespace BARS.Windows
 
         private const int PROFILE_ENTRY_SPACING = 5;
 
-
         private bool isDisposing = false;
 
         private Dictionary<string, GenericButton> profileButtons = new Dictionary<string, GenericButton>(); public Profiles(string icao)
@@ -122,7 +121,6 @@ namespace BARS.Windows
 
             ResetAllSelections();
 
-
             var openProfiles = BARS.GetOpenProfiles(AirportIcao);
             if (openProfiles.Any())
             {
@@ -133,7 +131,6 @@ namespace BARS.Windows
                     {
                         SelectedProfiles.Add(profile);
                     }
-
 
                     if (profileButtons.ContainsKey(profile))
                     {
@@ -164,12 +161,13 @@ namespace BARS.Windows
         {
             if (disposing)
             {
-                isDisposing = true;
                 BARS.ControllerWindowClosed -= BARS_ControllerWindowClosed;
                 this.Activated -= Profiles_Activated;
+                components?.Dispose();
             }
             base.Dispose(disposing);
         }
+        
         private void BARS_ControllerWindowClosed(object sender, ControllerWindowEventArgs e)
         {
 
@@ -268,7 +266,6 @@ namespace BARS.Windows
                 CreateProfileEntry(profiles[i], i);
             }
 
-
             BARS.ControllerWindowClosed += BARS_ControllerWindowClosed;
         }
 
@@ -289,7 +286,6 @@ namespace BARS.Windows
 
             if (File.Exists(profileFilePath))
             {
-
                 var openButton = new GenericButton
                 {
                     Text = "OPEN INTAS CONTROLLER",
@@ -357,7 +353,6 @@ namespace BARS.Windows
             lbl_header.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
         }
     }
-
 
     public class ProfileSelectedEventArgs : EventArgs
     {

@@ -16,6 +16,8 @@ namespace BARS.Windows
         public Config()
         {
             InitializeComponent();
+            this.MiddleClickClose = false;
+
             StyleComponent();
             SyncAirportList();
 

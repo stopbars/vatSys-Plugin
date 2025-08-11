@@ -18,6 +18,7 @@ namespace BARS.Util
         {
             try
             {
+                // Log to file
                 using (StreamWriter w = File.AppendText($"{dirPath}\\BARS-V2.log"))
                 {
                     w.WriteLine("{0} [ERROR] [{1}]: {2}", DateTime.UtcNow.ToLongTimeString(), name, msg);

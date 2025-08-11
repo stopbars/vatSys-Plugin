@@ -1,6 +1,5 @@
 ﻿using BARS.Util;
 using BARS.Windows;
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
@@ -28,7 +27,6 @@ namespace BARS
         private static Dictionary<string, string> ActiveProfiles = new Dictionary<string, string>();
         private static List<Controller_INTAS> INTASWindows = new List<Controller_INTAS>();
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
-
         private readonly Logger logger = new Logger("BARS for vatSys");
         private readonly NetManager netManager = NetManager.Instance;
 
@@ -53,8 +51,8 @@ namespace BARS
         public static event EventHandler<ControllerWindowEventArgs> ControllerWindowClosed;
 
         public static Dictionary<string, Dictionary<string, string>> AirportProfiles { get; private set; } =
-            new Dictionary<string, Dictionary<string, string>>();
-
+        new Dictionary<string, Dictionary<string, string>>();
+          
         public static List<string> ControlledAirports { get; private set; } = new List<string>();
 
         public string DisplayName => "BARS for vatSys";
@@ -156,6 +154,7 @@ namespace BARS
             return result;
         }
 
+        // Method to check if a controller window is open for this airport and profile
         public static bool IsControllerWindowOpen(string airport, string profile)
         {
             string formattedIcao = airport.Trim().ToUpper();
@@ -228,7 +227,6 @@ namespace BARS
                 MMI.InvokeOnGUI(() => profileWindow.SyncActiveProfilesStatus());
             }
         }
-
         public static void OpenINTASAirport(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
@@ -283,6 +281,7 @@ namespace BARS
                 config.SyncAirportList();
             }
 
+            // Remove all controller windows for this airport
             RemoveControllerWindows(formattedIcao);
         }
 
@@ -325,7 +324,6 @@ namespace BARS
         {
             if (string.IsNullOrWhiteSpace(icao))
                 return; string formattedIcao = icao.Trim().ToUpper();
-
             if (ActiveProfiles.ContainsKey(formattedIcao))
             {
                 ActiveProfiles.Remove(formattedIcao);

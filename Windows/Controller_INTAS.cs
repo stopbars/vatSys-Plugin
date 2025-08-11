@@ -35,7 +35,6 @@ namespace BARS.Windows
             InitializeComponent();
             this.Airport = Airport;
             this.ActiveProfile = Profile;
-
             string displayTitle = (Airport == Profile) ? $"BARS - {Airport} - INTAS" : $"BARS - {Airport} - {Profile} - INTAS";
             this.Text = displayTitle;
 
