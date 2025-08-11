@@ -234,37 +234,6 @@ namespace BARS.Windows
                 {
                     ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
                 }
-                foreach (var candidate in leadOnTagCandidates)
-                {
-                    leadOnNode = stopbar.SelectSingleNode(candidate);
-                    if (leadOnNode != null) break;
-                }
-                if (leadOnNode != null)
-                {
-                    leadOnId = leadOnNode.InnerText?.Trim();
-                    if (string.IsNullOrEmpty(leadOnId))
-                    {
-                        logger.Log($"Profile stopbar {barsId}: Found lead-on tag '{leadOnNode.Name}' but it was empty – ignoring.");
-                        leadOnId = null; // ignore empty tag
-                    }
-                    else
-                    {
-                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}' from tag '{leadOnNode.Name}'.");
-                    }
-                }
-                else
-                {
-                    logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found (looked for: {string.Join(", ", leadOnTagCandidates)}).");
-                }
-
-                if (!string.IsNullOrEmpty(leadOnId))
-                {
-                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, leadOnId, true);
-                }
-                else
-                {
-                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
-                }
             }
 
             XmlNodeList crossbars = doc.SelectNodes("//CrossbarsConfig/Crossbar");
@@ -304,6 +273,17 @@ namespace BARS.Windows
                 if (control != null && control.BackColor == Color.PeachPuff)
                 {
                     control.BackColor = Color.FromArgb(255, 91, 91, 91);
+                }
+
+                // Standardise label rendering so scaling doesn't wrap or clip 3-char IDs
+                if (control is Label lbl && lbl.Name.StartsWith("lbl_"))
+                {
+                    lbl.AutoSize = false;               // Fixed square boxes
+                    lbl.UseMnemonic = false;            // Don't treat & as mnemonic
+                    lbl.AutoEllipsis = false;           // Never add ellipsis – shrink font instead
+                    lbl.Padding = Padding.Empty;
+                    lbl.Margin = new Padding(0);
+                    try { lbl.UseCompatibleTextRendering = true; } catch { /* older frameworks */ }
                 }
             }
 
@@ -663,6 +643,12 @@ namespace BARS.Windows
                         {
                             control.Font = newFont;
                         }
+
+                        // After assigning the scaled font, ensure 3-char (or longer) stopbar labels fit without clipping.
+                        if (control is Label fitLabel && fitLabel.Name.StartsWith("lbl_"))
+                        {
+                            FitLabelText(fitLabel);
+                        }
                     }
                     catch
                     {
@@ -673,6 +659,42 @@ namespace BARS.Windows
             this.ResumeLayout(false);
             this.PerformLayout();
             this.Refresh();
+        }
+
+        /// <summary>
+        /// Dynamically shrinks the font (slightly) for labels whose text would otherwise clip or wrap
+        /// after a resize. Especially noticeable for 3-character stopbar names (e.g. "A10") where the
+        /// last character was being truncated due to tight width + bold font metrics.
+        /// </summary>
+        private void FitLabelText(Label label)
+        {
+            if (label == null || string.IsNullOrEmpty(label.Text)) return;
+            // Quick exit for 1-2 chars – they always fit.
+            if (label.Text.Length < 3) return;
+
+            // Safety guard – avoid infinite loops.
+            int iterations = 0;
+            const int maxIterations = 4;
+            int availableWidth = Math.Max(1, label.ClientSize.Width - 2); // small padding
+            using (var g = label.CreateGraphics())
+            {
+                SizeF size = g.MeasureString(label.Text, label.Font);
+                while (size.Width > availableWidth && iterations < maxIterations)
+                {
+                    float shrinkRatio = availableWidth / size.Width;
+                    // Apply a slight extra reduction to give breathing room.
+                    float newSize = Math.Max(6f, label.Font.Size * shrinkRatio * 0.96f);
+                    if (newSize >= label.Font.Size - 0.1f) break; // No meaningful change
+                    try
+                    {
+                        var adjusted = new Font(label.Font.FontFamily, newSize, label.Font.Style);
+                        label.Font = adjusted;
+                    }
+                    catch { break; }
+                    size = g.MeasureString(label.Text, label.Font);
+                    iterations++;
+                }
+            }
         }
 
         private void Controller_FormClosing(object sender, FormClosingEventArgs e)

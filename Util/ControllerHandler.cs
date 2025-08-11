@@ -15,6 +15,11 @@ namespace BARS.Util
     {
         private static readonly Logger _logger = new Logger("ControllerHandler");
         private static Dictionary<string, Dictionary<string, Stopbar>> _stopbars = new Dictionary<string, Dictionary<string, Stopbar>>();
+        // Debounce map to prevent rapid-fire user toggles causing network/state feedback loops
+        private static readonly Dictionary<string, DateTime> _lastToggle = new Dictionary<string, DateTime>();
+        private static readonly object _toggleLock = new object();
+        // Minimum interval between successive UI toggles of the same stopbar
+        private static readonly TimeSpan _minToggleInterval = TimeSpan.FromMilliseconds(250);
 
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
         // Event for new stopbar registration
@@ -139,6 +144,15 @@ namespace BARS.Util
             var stopbar = GetStopbar(airport, barsId);
             if (stopbar != null)
             {
+                var key = airport + "|" + barsId;
+                lock (_toggleLock)
+                {
+                    if (_lastToggle.TryGetValue(key, out var last) && (DateTime.UtcNow - last) < _minToggleInterval)
+                    {
+                        return; // Ignore rapid repeat
+                    }
+                    _lastToggle[key] = DateTime.UtcNow;
+                }
                 stopbar.State = !stopbar.State;
                 stopbar.AutoRaise = autoRaise;
 
