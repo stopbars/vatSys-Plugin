@@ -21,8 +21,8 @@
   <a href="https://opencollective.com/stopbars">
     <img src="https://img.shields.io/static/v1?label=&message=Open%20Collective&color=297EF2&logo=opencollective&logoColor=white" />
   </a>
-  <a href="https://www.gnu.org/licenses/agpl-3.0">
-    <img src="https://img.shields.io/static/v1?label=Licence&message=AGPL%20v3&color=000" />
+  <a href="https://www.mozilla.org/en-US/MPL/2.0/">
+    <img src="https://img.shields.io/static/v1?label=Licence&message=MPL-2.0&color=000" />
   </a>
   <a href="https://docs.stopbars.com/vatsys" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Documentation-e81919.svg" alt="Documentation">
