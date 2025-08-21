@@ -5,7 +5,7 @@
 	<h1 align="center"><b>stopbars/vatSys-Plugin</b></h1>
 	<p align="center">
     <br />
-    BARS vatSys Plugin enables controllers to manage and update airport lighting that directly reflects into simulators, synchronizing lighting state between controllers and pilots. The plugin supports multiple airport profiles, windows, customization, stopbar               reactivation timers, modern true to life design and animations, and easy rescaling and responsiveness for different screen sizes.
+    BARS vatSys Plugin enables controllers to manage and update airport lighting that directly reflects into simulators, synchronizing lighting state between controllers and pilots. The plugin supports multiple airport profiles, windows, customization, stopbar reactivation timers, modern true to life design and animations, and easy rescaling and responsiveness for different screen sizes.
     <br />
     <br />
     <a href="https://stopbars.com"><strong>stopbars.com »</strong></a>
