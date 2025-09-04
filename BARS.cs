@@ -52,7 +52,7 @@ namespace BARS
 
         public static Dictionary<string, Dictionary<string, string>> AirportProfiles { get; private set; } =
         new Dictionary<string, Dictionary<string, string>>();
-          
+
         public static List<string> ControlledAirports { get; private set; } = new List<string>();
 
         public string DisplayName => "BARS for vatSys";
@@ -429,7 +429,8 @@ namespace BARS
         {
             Properties.Settings.Default.APIKey = newApiKey;
             Properties.Settings.Default.Save();
-            NetManager.Instance.Initialize(newApiKey);
+            // Apply new key across existing connections without requiring restart
+            _ = NetManager.Instance.UpdateApiKeyAsync(newApiKey);
         }
 
         public void OnFDRUpdate(FDP2.FDR updated)

@@ -73,31 +73,40 @@ namespace BARS.Util
             if (CenterPoint == null)
                 return new PointF(0, 0);
 
-            double scaleX = screenBounds.Width / MapBounds;
-            double scaleY = screenBounds.Height / MapBounds;
+            // Use a local tangent-plane projection so X and Y are in meters (prevents skew/tilt at higher latitudes)
+            GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon);
 
-            if (MapBounds <= 0 || double.IsInfinity(scaleX) || double.IsInfinity(scaleY))
+            if (MapBounds <= 0)
             {
                 return new PointF(0, 0);
             }
 
-            double deltaX = geoPoint.Longitude - CenterPoint.Longitude;
-            double deltaY = CenterPoint.Latitude - geoPoint.Latitude;
+            double scale = screenBounds.Width / MapBounds; // square viewport, use uniform scale
+            if (double.IsInfinity(scale) || double.IsNaN(scale))
+            {
+                return new PointF(0, 0);
+            }
 
+            // Local ENU meters (Y positive to North)
+            double dx = (geoPoint.Longitude - CenterPoint.Longitude) * mPerDegLon;
+            double dy = (geoPoint.Latitude - CenterPoint.Latitude) * mPerDegLat;
+
+            // Apply map rotation (in math coords, CCW positive). Screen Y is inverted later.
             if (Math.Abs(Rotation) > 0.001)
             {
-                double rotationRadians = Rotation * Math.PI / 180.0;
+                // Rotation is stored as degrees clockwise from North; math rotation is CCW, so negate
+                double rotationRadians = -Rotation * Math.PI / 180.0;
                 double cosRot = Math.Cos(rotationRadians);
                 double sinRot = Math.Sin(rotationRadians);
 
-                double rotatedX = deltaX * cosRot - deltaY * sinRot;
-                double rotatedY = deltaX * sinRot + deltaY * cosRot;
-
-                deltaX = rotatedX;
-                deltaY = rotatedY;
+                double rx = dx * cosRot - dy * sinRot;
+                double ry = dx * sinRot + dy * cosRot;
+                dx = rx; dy = ry;
             }
-            double rawX = deltaX * scaleX + screenBounds.X + screenBounds.Width / 2;
-            double rawY = deltaY * scaleY + screenBounds.Y + screenBounds.Height / 2;
+
+            // Convert to screen. Invert Y because screen coordinates grow downward.
+            double rawX = dx * scale + screenBounds.X + screenBounds.Width / 2;
+            double rawY = (-dy) * scale + screenBounds.Y + screenBounds.Height / 2;
 
             if (Math.Abs(rawX) > float.MaxValue || Math.Abs(rawY) > float.MaxValue ||
                 double.IsNaN(rawX) || double.IsNaN(rawY) ||
@@ -117,32 +126,34 @@ namespace BARS.Util
             if (CenterPoint == null)
                 return new PointF(0, 0);
 
-            double scaleX = (screenBounds.Width / MapBounds) * zoomLevel;
-            double scaleY = (screenBounds.Height / MapBounds) * zoomLevel;
-
-            if (MapBounds <= 0 || double.IsInfinity(scaleX) || double.IsInfinity(scaleY))
+            GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon);
+            if (MapBounds <= 0)
             {
                 return new PointF(0, 0);
             }
 
-            double deltaX = geoPoint.Longitude - CenterPoint.Longitude;
-            double deltaY = CenterPoint.Latitude - geoPoint.Latitude;
+            double scale = (screenBounds.Width / MapBounds) * zoomLevel; // square viewport -> uniform scale
+            if (double.IsInfinity(scale) || double.IsNaN(scale))
+            {
+                return new PointF(0, 0);
+            }
+
+            double dx = (geoPoint.Longitude - CenterPoint.Longitude) * mPerDegLon;
+            double dy = (geoPoint.Latitude - CenterPoint.Latitude) * mPerDegLat;
 
             if (Math.Abs(Rotation) > 0.001)
             {
-                double rotationRadians = Rotation * Math.PI / 180.0;
+                // Rotation is stored as degrees clockwise from North; math rotation is CCW, so negate
+                double rotationRadians = -Rotation * Math.PI / 180.0;
                 double cosRot = Math.Cos(rotationRadians);
                 double sinRot = Math.Sin(rotationRadians);
-
-                double rotatedX = deltaX * cosRot - deltaY * sinRot;
-                double rotatedY = deltaX * sinRot + deltaY * cosRot;
-
-                deltaX = rotatedX;
-                deltaY = rotatedY;
+                double rx = dx * cosRot - dy * sinRot;
+                double ry = dx * sinRot + dy * cosRot;
+                dx = rx; dy = ry;
             }
 
-            double rawX = deltaX * scaleX + screenBounds.X + screenBounds.Width / 2 + panOffset.X;
-            double rawY = deltaY * scaleY + screenBounds.Y + screenBounds.Height / 2 + panOffset.Y;
+            double rawX = dx * scale + screenBounds.X + screenBounds.Width / 2 + panOffset.X;
+            double rawY = (-dy) * scale + screenBounds.Y + screenBounds.Height / 2 + panOffset.Y;
 
             if (Math.Abs(rawX) > float.MaxValue || Math.Abs(rawY) > float.MaxValue ||
                 double.IsNaN(rawX) || double.IsNaN(rawY) ||
@@ -171,19 +182,25 @@ namespace BARS.Util
             if (mapData.Taxiways.Lines.Count == 0 && mapData.LeadOnLights.Count == 0 && mapData.Windsocks.Count == 0 && mapData.Stopbars.Count == 0)
                 return;
 
+            // First pass: compute rough lat/lon bounds and set CenterPoint to mid, so meters-per-degree is stable.
             double minLon = double.MaxValue;
             double maxLon = double.MinValue;
             double minLat = double.MaxValue;
             double maxLat = double.MinValue;
 
+            void ExpandLatLon(double lon, double lat)
+            {
+                minLon = Math.Min(minLon, lon);
+                maxLon = Math.Max(maxLon, lon);
+                minLat = Math.Min(minLat, lat);
+                maxLat = Math.Max(maxLat, lat);
+            }
+
             foreach (var line in mapData.Taxiways.Lines)
             {
                 foreach (var point in line.Points)
                 {
-                    minLon = Math.Min(minLon, point.Longitude);
-                    maxLon = Math.Max(maxLon, point.Longitude);
-                    minLat = Math.Min(minLat, point.Latitude);
-                    maxLat = Math.Max(maxLat, point.Latitude);
+                    ExpandLatLon(point.Longitude, point.Latitude);
                 }
             }
 
@@ -191,89 +208,82 @@ namespace BARS.Util
             {
                 foreach (var point in leadOn.Line.Points)
                 {
-                    minLon = Math.Min(minLon, point.Longitude);
-                    maxLon = Math.Max(maxLon, point.Longitude);
-                    minLat = Math.Min(minLat, point.Latitude);
-                    maxLat = Math.Max(maxLat, point.Latitude);
+                    ExpandLatLon(point.Longitude, point.Latitude);
                 }
             }
 
             foreach (var windsock in mapData.Windsocks)
             {
-                minLon = Math.Min(minLon, windsock.Position.Longitude);
-                maxLon = Math.Max(maxLon, windsock.Position.Longitude);
-                minLat = Math.Min(minLat, windsock.Position.Latitude);
-                maxLat = Math.Max(maxLat, windsock.Position.Latitude);
+                ExpandLatLon(windsock.Position.Longitude, windsock.Position.Latitude);
             }
 
             foreach (var stopbar in mapData.Stopbars)
             {
-                minLon = Math.Min(minLon, stopbar.Position.Longitude);
-                maxLon = Math.Max(maxLon, stopbar.Position.Longitude);
-                minLat = Math.Min(minLat, stopbar.Position.Latitude);
-                maxLat = Math.Max(maxLat, stopbar.Position.Latitude);
-            }
-
-            foreach (var stopbar in mapData.Stopbars)
-            {
-                minLon = Math.Min(minLon, stopbar.Position.Longitude);
-                maxLon = Math.Max(maxLon, stopbar.Position.Longitude);
-                minLat = Math.Min(minLat, stopbar.Position.Latitude);
-                maxLat = Math.Max(maxLat, stopbar.Position.Latitude);
+                ExpandLatLon(stopbar.Position.Longitude, stopbar.Position.Latitude);
             }
 
             mapData.CenterPoint = new GeoPoint(
                 (minLon + maxLon) / 2.0,
                 (minLat + maxLat) / 2.0);
 
-            if (Math.Abs(mapData.Rotation) > 0.001)
+            // Second pass: compute bounds in local meters, after applying rotation
+            mapData.GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon);
+            double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue;
+
+            void AccumulateXY(double lon, double lat)
             {
-                CalculateRotatedBounds(mapData, minLon, maxLon, minLat, maxLat);
+                double dx = (lon - mapData.CenterPoint.Longitude) * mPerDegLon;
+                double dy = (lat - mapData.CenterPoint.Latitude) * mPerDegLat;
+                if (Math.Abs(mapData.Rotation) > 0.001)
+                {
+                    // Stored as clockwise; negate for CCW math rotation
+                    double r = -mapData.Rotation * Math.PI / 180.0;
+                    double c = Math.Cos(r); double s = Math.Sin(r);
+                    double rx = dx * c - dy * s;
+                    double ry = dx * s + dy * c;
+                    dx = rx; dy = ry;
+                }
+                minX = Math.Min(minX, dx);
+                maxX = Math.Max(maxX, dx);
+                minY = Math.Min(minY, dy);
+                maxY = Math.Max(maxY, dy);
             }
-            else
+
+            foreach (var line in mapData.Taxiways.Lines)
             {
-                double lonRange = maxLon - minLon;
-                double latRange = maxLat - minLat;
-                mapData.MapBounds = Math.Max(lonRange, latRange) * 1;
+                foreach (var point in line.Points) AccumulateXY(point.Longitude, point.Latitude);
             }
+            foreach (var leadOn in mapData.LeadOnLights)
+            {
+                foreach (var point in leadOn.Line.Points) AccumulateXY(point.Longitude, point.Latitude);
+            }
+            foreach (var windsock in mapData.Windsocks)
+            {
+                AccumulateXY(windsock.Position.Longitude, windsock.Position.Latitude);
+            }
+            foreach (var stopbar in mapData.Stopbars)
+            {
+                AccumulateXY(stopbar.Position.Longitude, stopbar.Position.Latitude);
+            }
+
+            double rangeX = (maxX - minX);
+            double rangeY = (maxY - minY);
+            mapData.MapBounds = Math.Max(rangeX, rangeY);
         }
 
-        private static void CalculateRotatedBounds(AirportMapData mapData, double minLon, double maxLon, double minLat, double maxLat)
+        // Public wrapper to recompute bounds after changing rotation externally
+        public void RecalculateBounds()
         {
-            var corners = new[]
-            {
-                new { Lon = minLon, Lat = minLat },
-                new { Lon = maxLon, Lat = minLat },
-                new { Lon = maxLon, Lat = maxLat },
-                new { Lon = minLon, Lat = maxLat }
-            };
+            CalculateMapBounds(this);
+        }
 
-            double rotationRadians = mapData.Rotation * Math.PI / 180.0;
-            double cosRot = Math.Cos(rotationRadians);
-            double sinRot = Math.Sin(rotationRadians);
-
-            double minRotatedX = double.MaxValue;
-            double maxRotatedX = double.MinValue;
-            double minRotatedY = double.MaxValue;
-            double maxRotatedY = double.MinValue;
-
-            foreach (var corner in corners)
-            {
-                double deltaX = corner.Lon - mapData.CenterPoint.Longitude;
-                double deltaY = mapData.CenterPoint.Latitude - corner.Lat;
-
-                double rotatedX = deltaX * cosRot - deltaY * sinRot;
-                double rotatedY = deltaX * sinRot + deltaY * cosRot;
-
-                minRotatedX = Math.Min(minRotatedX, rotatedX);
-                maxRotatedX = Math.Max(maxRotatedX, rotatedX);
-                minRotatedY = Math.Min(minRotatedY, rotatedY);
-                maxRotatedY = Math.Max(maxRotatedY, rotatedY);
-            }
-            double rotatedXRange = maxRotatedX - minRotatedX;
-            double rotatedYRange = maxRotatedY - minRotatedY;
-
-            mapData.MapBounds = Math.Max(rotatedXRange, rotatedYRange) * 1;
+        // Provide meters-per-degree at the current map center latitude
+        private void GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon)
+        {
+            double lat0 = (CenterPoint?.Latitude ?? 0.0) * Math.PI / 180.0;
+            mPerDegLat = 111320.0;               // Approx meters per degree latitude
+            mPerDegLon = Math.Cos(lat0) * 111320.0; // Scaled meters per degree longitude
+            if (mPerDegLon < 1e-6) mPerDegLon = 1e-6; // guard against poles
         }
 
         private static void LoadLeadOnLights(XmlDocument doc, AirportMapData mapData)
@@ -328,9 +338,15 @@ namespace BARS.Util
                 if (positionNode != null)
                 {
                     string rotationAttr = positionNode.Attributes["Rotation"]?.Value;
-                    if (!string.IsNullOrEmpty(rotationAttr) && double.TryParse(rotationAttr, out double rotation))
+                    string magVarAttr = positionNode.Attributes["MagneticVariation"]?.Value;
+                    double rotation = 0.0;
+                    double magVar = 0.0;
+                    bool hasRot = !string.IsNullOrEmpty(rotationAttr) && double.TryParse(rotationAttr, out rotation);
+                    bool hasMag = !string.IsNullOrEmpty(magVarAttr) && double.TryParse(magVarAttr, out magVar);
+
+                    if (hasRot)
                     {
-                        mapData.Rotation = rotation;
+                        mapData.Rotation = hasMag ? (rotation + magVar) : rotation;
                     }
                 }
             }

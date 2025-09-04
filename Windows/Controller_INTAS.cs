@@ -121,6 +121,8 @@ namespace BARS.Windows
         {
             try
             {
+                LoadMetar(this.Airport);
+
                 originalFormSize = this.ClientSize;
                 lastSize = this.ClientSize;
 
@@ -135,8 +137,6 @@ namespace BARS.Windows
                 ApplyResize();
                 airportMapControl.Invalidate();
                 this.Refresh();
-
-                LoadMetar(this.Airport);
 
                 airportMapControl.SetWind(0, 0);
 
@@ -288,10 +288,21 @@ namespace BARS.Windows
                     }
                 }
 
+                double? asmgcsRotation = null; // clockwise degrees
                 foreach (var map in doc.Root.Elements("Map"))
                 {
                     string mapType = map.Attribute("Type")?.Value ?? "";
                     var elements = new List<MapElement>();
+
+                    // Capture heading/rotation if present on any map layer
+                    var headingAttr = map.Attribute("Heading")?.Value ?? map.Attribute("Rotation")?.Value;
+                    if (asmgcsRotation == null && !string.IsNullOrWhiteSpace(headingAttr))
+                    {
+                        if (double.TryParse(headingAttr, out double rotCw))
+                        {
+                            asmgcsRotation = rotCw;
+                        }
+                    }
 
                     foreach (var infill in map.Elements("Infill"))
                     {
@@ -317,6 +328,12 @@ namespace BARS.Windows
                     centerPoint = new PointF((float)centerLon, (float)centerLat);
                 }
                 airportMapControl.LoadGroundLayout(groundElements);
+
+                // Apply rotation from ASMGCS if available (clockwise degrees)
+                if (asmgcsRotation.HasValue)
+                {
+                    airportMapControl.SetMapRotation(asmgcsRotation.Value);
+                }
             }
             catch (Exception ex)
             {

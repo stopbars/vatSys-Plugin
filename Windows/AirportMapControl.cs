@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 using System.Windows.Forms;
 using vatsys;
 
@@ -34,6 +37,8 @@ namespace BARS.Windows
         private int _baseWindDirection = 0;
 
         private int _baseWindSpeed = 0;
+        private int _baseWindGust = 0; // parsed from METAR Gxx
+        private bool _isVariableWind = false; // METAR VRB indicator
 
         private int _defaultCountdownSeconds = 45;
 
@@ -48,6 +53,8 @@ namespace BARS.Windows
         private Random _windRandom = new Random();
         private Dictionary<Windsock, WindState> _windsockStates = new Dictionary<Windsock, WindState>();
         private float _zoomLevel = 1.0f;
+        private List<RunwayInfo> _runways;
+        private static readonly HttpClient _httpClient = new HttpClient();
 
         public AirportMapControl()
         {
@@ -135,6 +142,9 @@ namespace BARS.Windows
                 }
 
                 Invalidate();
+
+                // Fire-and-forget fetch of runway geometry used for crosswind checks
+                _ = FetchRunwaysAsync(airportIcao);
             }
             catch (Exception ex)
             {
@@ -174,10 +184,21 @@ namespace BARS.Windows
             Invalidate();
         }
 
+        // Allows overriding the map rotation (clockwise degrees) using external sources (e.g., ASMGCS file)
+        public void SetMapRotation(double rotationDegreesCW)
+        {
+            if (_mapData == null) return;
+            _mapData.Rotation = rotationDegreesCW;
+            try { _mapData.RecalculateBounds(); } catch { /* ignore if not yet ready */ }
+            Invalidate();
+        }
+
         public void SetWind(int direction, int speed)
         {
             _baseWindDirection = direction;
             _baseWindSpeed = speed;
+            _baseWindGust = Math.Max(speed, _baseWindGust); // keep gust >= speed; leave as-is if previously higher
+            _isVariableWind = false;
 
             _logger.Log($"Wind manually set to: {direction}° at {speed} knots");
 
@@ -282,21 +303,26 @@ namespace BARS.Windows
             var stopbar = _mapData.Stopbars.FirstOrDefault(s => s.BarsId == barsId);
             if (stopbar == null)
             {
-                UpdateLeadOnLight(barsId, stopbarActive);
+                // Fallback: compute aggregated state for a lead-on with same id as barsId (if any)
+                bool aggregatedActive = IsLeadOnStopbarActive(barsId);
+                UpdateLeadOnLight(barsId, aggregatedActive);
                 return;
             }
 
             if (stopbar.LeadOnIds != null && stopbar.LeadOnIds.Count > 0)
             {
+                // Aggregate across all stopbars that reference each lead-on: lead-on is OFF only when all controlling stopbars are active (raised)
                 foreach (string leadOnId in stopbar.LeadOnIds)
                 {
-                    UpdateLeadOnLight(leadOnId, stopbarActive);
+                    bool aggregatedActive = IsLeadOnStopbarActive(leadOnId);
+                    UpdateLeadOnLight(leadOnId, aggregatedActive);
                 }
                 _logger.Log($"Updated {stopbar.LeadOnIds.Count} lead-on lights for stopbar {barsId}");
             }
             else
             {
-                UpdateLeadOnLight(barsId, stopbarActive);
+                bool aggregatedActive = IsLeadOnStopbarActive(barsId);
+                UpdateLeadOnLight(barsId, aggregatedActive);
             }
         }
 
@@ -326,23 +352,57 @@ namespace BARS.Windows
 
             try
             {
-                var windMatch = System.Text.RegularExpressions.Regex.Match(metarText, @"(\d{3})(\d{2,3})(?:G\d{2,3})?KT");
+                // Capture VRB or 3-digit dir, sustained speed, optional gust
+                var windMatch = System.Text.RegularExpressions.Regex.Match(metarText, @"(VRB|\d{3})(\d{2,3})(?:G(\d{2,3}))?KT");
 
                 if (windMatch.Success)
                 {
-                    if (int.TryParse(windMatch.Groups[1].Value, out int direction) &&
-                        int.TryParse(windMatch.Groups[2].Value, out int speed))
+                    string dirToken = windMatch.Groups[1].Value;
+                    bool vrb = string.Equals(dirToken, "VRB", StringComparison.OrdinalIgnoreCase);
+                    int direction = _baseWindDirection;
+                    if (!vrb)
                     {
-                        _baseWindDirection = direction;
-                        _baseWindSpeed = speed;
+                        int.TryParse(dirToken, out direction);
+                    }
 
-                        _logger.Log($"Updated wind from METAR: {direction}° at {speed} knots");
+                    int speed = 0;
+                    int.TryParse(windMatch.Groups[2].Value, out speed);
+                    int gust = 0;
+                    if (windMatch.Groups.Count >= 4)
+                    {
+                        int.TryParse(windMatch.Groups[3].Value, out gust);
+                    }
 
-                        if (_mapData?.Windsocks != null)
+                    _baseWindDirection = NormalizeDegrees(direction);
+                    _baseWindSpeed = Math.Max(0, speed);
+                    _baseWindGust = Math.Max(_baseWindSpeed, Math.Max(0, gust));
+                    _isVariableWind = vrb;
+
+                    var gustText = gust > 0 ? $" G{gust}KT" : string.Empty;
+                    var vrbText = vrb ? " VRB" : string.Empty;
+                    _logger.Log($"Updated wind from METAR:{vrbText} {_baseWindDirection:000}° {_baseWindSpeed}KT{gustText}");
+
+                    if (_mapData?.Windsocks != null)
+                    {
+                        foreach (var windsock in _mapData.Windsocks)
                         {
-                            foreach (var windsock in _mapData.Windsocks)
+                            // preserve turbulence per windsock if it exists
+                            if (_windsockStates.TryGetValue(windsock, out var prev))
                             {
-                                _windsockStates[windsock] = new WindState(direction, speed);
+                                _windsockStates[windsock] = new WindState(_baseWindDirection, _baseWindSpeed)
+                                {
+                                    TurbulenceFactor = prev.TurbulenceFactor,
+                                    GustActive = false,
+                                    GustUntil = DateTime.MinValue,
+                                    GustSpeed = _baseWindGust
+                                };
+                            }
+                            else
+                            {
+                                _windsockStates[windsock] = new WindState(_baseWindDirection, _baseWindSpeed)
+                                {
+                                    GustSpeed = _baseWindGust
+                                };
                             }
                         }
                     }
@@ -354,6 +414,8 @@ namespace BARS.Windows
                     {
                         _baseWindDirection = 0;
                         _baseWindSpeed = 0;
+                        _baseWindGust = 0;
+                        _isVariableWind = false;
 
                         _logger.Log("Wind conditions: CALM");
 
@@ -361,7 +423,20 @@ namespace BARS.Windows
                         {
                             foreach (var windsock in _mapData.Windsocks)
                             {
-                                _windsockStates[windsock] = new WindState(0, 0);
+                                if (_windsockStates.TryGetValue(windsock, out var prev))
+                                {
+                                    _windsockStates[windsock] = new WindState(0, 0)
+                                    {
+                                        TurbulenceFactor = prev.TurbulenceFactor,
+                                        GustActive = false,
+                                        GustUntil = DateTime.MinValue,
+                                        GustSpeed = 0
+                                    };
+                                }
+                                else
+                                {
+                                    _windsockStates[windsock] = new WindState(0, 0);
+                                }
                             }
                         }
                     }
@@ -371,6 +446,9 @@ namespace BARS.Windows
             {
                 _logger.Error($"Error parsing wind from METAR: {ex.Message}");
             }
+
+            // Ensure UI updates to reflect new wind and potential crosswind highlighting
+            Invalidate();
         }
 
         protected override void Dispose(bool disposing)
@@ -976,8 +1054,8 @@ namespace BARS.Windows
 
             using (Matrix rotationMatrix = new Matrix())
             {
-                float adjustedHeading = (float)(stopbar.Heading - _mapData.Rotation);
-
+                // Use a unified rotation calculation so stopbar visuals match map rotation consistently
+                float adjustedHeading = GetStopbarRotation(stopbar);
                 rotationMatrix.RotateAt(adjustedHeading, screenPos);
 
                 g.Transform = rotationMatrix;
@@ -1065,13 +1143,39 @@ namespace BARS.Windows
                 g.CompositingQuality = CompositingQuality.HighQuality;
                 g.CompositingMode = CompositingMode.SourceOver;
 
+                // Translate to stopbar position and rotate using unified helper (accounts for map rotation and sprite orientation)
+                float adjustedHeading = GetStopbarRotation(stopbar);
                 g.TranslateTransform(screenPos.X, screenPos.Y);
-                g.RotateTransform((float)stopbar.Heading + (float)_mapData.Rotation + 180f);
+                g.RotateTransform(adjustedHeading);
                 g.TranslateTransform(-imageSize / 2f, -imageSize / 2f);
 
                 g.DrawImage(stopbarImage, 0, 0, imageSize, imageSize);
                 g.Restore(state);
             }
+        }
+
+        // Computes the correct on-screen rotation for a stopbar sprite, compensating for map rotation
+        // and aligning the sprite perpendicular to the taxiway/stopbar heading.
+        private float GetStopbarRotation(MapStopbar stopbar)
+        {
+            if (_mapData == null)
+                return 0f;
+
+            // World geometry is rotated by -Rotation in projection, so subtract map rotation
+            float angle = (float)(stopbar.Heading + _mapData.Rotation - 90f);
+
+            // Normalize to [0, 360)
+            angle %= 360f;
+            if (angle < 0f) angle += 360f;
+
+            // Stopbar sprite is drawn perpendicular to taxiway heading
+            angle -= 90f;
+
+            // Normalize again after adjustment
+            angle %= 360f;
+            if (angle < 0f) angle += 360f;
+
+            return angle;
         }
 
         private void DrawTaxiways(Graphics g, RectangleF bounds)
@@ -1126,8 +1230,12 @@ namespace BARS.Windows
 
                 var windState = _windsockStates.ContainsKey(windsock) ?
                     _windsockStates[windsock] :
-                    new WindState(_baseWindDirection, _baseWindSpeed); float windAngle = windState.CurrentDirection;
-                float mapRotation = (float)_mapData.Rotation; float totalRotation = windAngle + mapRotation + 180f;
+                    new WindState(_baseWindDirection, _baseWindSpeed);
+                // Compute on-screen rotation:
+                // - METAR direction is the direction the wind is FROM (true degrees)
+                // - Map geometry is rotated by -Rotation in projection, so add map Rotation to keep headings consistent on screen
+                // - Windsock tail should point DOWNWIND, hence +180 from the wind-from direction
+                float totalRotation = GetWindsockRotation(windState.CurrentDirection);
                 int baseImageSize = 12;
                 int imageSize = (int)(baseImageSize * _scalingRatio * _zoomLevel);
 
@@ -1141,12 +1249,10 @@ namespace BARS.Windows
                 g.SmoothingMode = SmoothingMode.HighQuality;
                 g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-                float pivotX = screenPoint.X - imageSize / 2f;
-                float pivotY = screenPoint.Y + imageSize / 2f;
-
-                g.TranslateTransform(pivotX, pivotY);
+                // Rotate around the icon center for predictable orientation
+                g.TranslateTransform(screenPoint.X, screenPoint.Y);
                 g.RotateTransform(totalRotation);
-                g.TranslateTransform(0, -imageSize);
+                g.TranslateTransform(-imageSize / 2f, -imageSize / 2f);
 
                 g.DrawImage(windsockImage, 0, 0, imageSize, imageSize);
 
@@ -1165,12 +1271,49 @@ namespace BARS.Windows
                 {
                     var textSize = g.MeasureString(windText, font);
                     float textX = screenPoint.X - textSize.Width / 2;
-
                     float textY = screenPoint.Y + (imageSize / 2) + (16 * _scalingRatio * _zoomLevel);
+
+                    // Compute wind components and draw orange background for high crosswind or tailwind
+                    ComputeWindComponentsForWindsock(windsock, out float crosswind, out float tailwind);
+                    bool highCrosswind = crosswind > 25.0f;
+                    bool tailwindAlert = tailwind >= 5.0f;
+                    if (highCrosswind || tailwindAlert)
+                    {
+                        float paddingX = 1.0f * _scalingRatio * _zoomLevel;
+                        float paddingY = 1.0f * _scalingRatio * _zoomLevel;
+                        RectangleF bg = new RectangleF(
+                            textX - paddingX,
+                            textY - paddingY,
+                            textSize.Width + (paddingX * 2),
+                            textSize.Height + (paddingY * 2));
+                        using (var bgBrush = new SolidBrush(Color.FromArgb(255, 117, 18)))
+                        {
+                            g.FillRectangle(bgBrush, bg);
+                        }
+                    }
 
                     g.DrawString(windText, font, textBrush, textX, textY);
                 }
             }
+        }
+
+        // Computes the correct on-screen rotation for a windsock sprite.
+        // Contract:
+        // - Input: windFromDeg (0..359), the direction wind is blowing FROM (meteorological convention, true degrees)
+        // - Output: clockwise degrees to rotate the sprite on screen so that the windsock tail points DOWNWIND
+        // Notes:
+        // - Map projection rotates world geometry by -Rotation (clockwise on screen),
+        //   so we ADD map Rotation here to maintain absolute heading on the rotated map.
+        // - We add +180 so the tail (not the mouth) points in the wind-to direction; this matches typical windsock sprites drawn pointing to +X at 0°.
+        private float GetWindsockRotation(int windFromDeg)
+        {
+            if (_mapData == null) return 0f;
+            float angle = NormalizeDegrees(windFromDeg);
+            angle += (float)_mapData.Rotation; // compensate for map rotation
+            angle += 180f; // tail downwind
+            angle %= 360f;
+            if (angle < 0f) angle += 360f;
+            return angle;
         }
 
         private void DrawWindsocksFallback(Graphics g, RectangleF bounds)
@@ -1224,15 +1367,21 @@ namespace BARS.Windows
         {
             if (_mapData?.Stopbars == null) return false;
 
-            foreach (var stopbar in _mapData.Stopbars)
+            // Find all stopbars that control this lead-on
+            var controlling = _mapData.Stopbars
+                .Where(s => s.LeadOnIds != null && s.LeadOnIds.Contains(leadOnId))
+                .ToList();
+
+            if (controlling.Count == 0)
             {
-                if (stopbar.LeadOnIds != null && stopbar.LeadOnIds.Contains(leadOnId))
-                {
-                    return stopbar.State;
-                }
+                // If no controlling stopbars explicitly reference this lead-on, default to not active
+                // so the lead-on will render as ON (common fallback behaviour in this UI)
+                return false;
             }
 
-            return false;
+            // Lead-on is considered "stopbar active" only if ALL controlling stopbars are active (raised)
+            // This makes the lead-on behave like an OR gate: any dropped stopbar keeps the lead-on ON.
+            return controlling.All(s => s.State);
         }
 
         private void OnMouseWheel(object sender, MouseEventArgs e)
@@ -1271,25 +1420,124 @@ namespace BARS.Windows
 
         private void WindSimulationTimer_Tick(object sender, EventArgs e)
         {
+            // Determine global conditions
+            int baseDir = _baseWindDirection;
+            int baseSpd = Math.Max(0, _baseWindSpeed);
+            int baseGust = Math.Max(baseSpd, _baseWindGust);
+            bool vrb = _isVariableWind;
+
             foreach (var windsock in _windsockStates.Keys.ToList())
             {
-                var currentState = _windsockStates[windsock];
+                var s = _windsockStates[windsock];
 
-                int directionVariation = _windRandom.Next(-10, 11);
-                int newDirection = (_baseWindDirection + directionVariation + 360) % 360;
+                // Initialize turbulence factor if default
+                if (s.TurbulenceFactor <= 0f)
+                {
+                    s.TurbulenceFactor = 0.7f + (float)_windRandom.NextDouble() * 0.8f; // 0.7 .. 1.5
+                }
 
-                int speedVariation = _windRandom.Next(-1, 2);
-                int newSpeed = Math.Max(0, _baseWindSpeed + speedVariation);
+                // Scale of variation based on speed (less at low speeds)
+                float speedScale = baseSpd <= 1 ? 0.15f : Math.Min(1f, baseSpd / 20f); // 0..1
+                float turb = s.TurbulenceFactor;
 
-                _windsockStates[windsock] = new WindState(newDirection, newSpeed);
+                // Direction target and step
+                int dirTarget = baseDir;
+                int dirWander = vrb ? _windRandom.Next(-60, 61) : _windRandom.Next(-12, 13);
+                dirWander = (int)(dirWander * turb);
+                dirTarget = NormalizeDegrees(dirTarget + dirWander);
+
+                float dirStep = (vrb ? 10f : 4f) * speedScale * turb; // deg per tick toward target
+                if (baseSpd == 0) dirStep = 0; // calm, no movement
+
+                int newDir = (int)Math.Round(MoveTowardsAngle(s.CurrentDirection, dirTarget, dirStep));
+                newDir = NormalizeDegrees(newDir);
+
+                // Gust logic: transient push towards gust speed
+                DateTime now = DateTime.Now;
+                if (baseGust > baseSpd)
+                {
+                    // chance to (re)trigger a gust event when none active
+                    if (!s.GustActive || now >= s.GustUntil)
+                    {
+                        float gustGap = baseGust - baseSpd;
+                        float p = Math.Min(0.25f, 0.05f + (gustGap / 30f) * 0.15f); // 5%..25%
+                        if (_windRandom.NextDouble() < p)
+                        {
+                            s.GustActive = true;
+                            int durMs = _windRandom.Next(2000, 8000); // 2..8s bursts
+                            s.GustUntil = now.AddMilliseconds(durMs);
+                            s.GustSpeed = baseGust + _windRandom.Next(-1, 2);
+                        }
+                    }
+                }
+                else
+                {
+                    s.GustActive = false;
+                }
+
+                int speedTarget = baseSpd;
+                if (s.GustActive && now < s.GustUntil)
+                {
+                    speedTarget = Math.Max(speedTarget, s.GustSpeed);
+                }
+
+                // Speed step depends on turbulence and whether gust is active
+                float baseStep = 0.6f + 1.2f * speedScale; // 0.6..1.8
+                if (s.GustActive) baseStep *= 1.8f; // accelerate during gust
+                baseStep *= turb;
+
+                // Add small random micro-jitter
+                int jitter = _windRandom.Next(-1, 2);
+                int newSpd = (int)Math.Round(MoveTowards(s.CurrentSpeed, speedTarget, baseStep)) + jitter;
+                newSpd = Math.Max(0, newSpd);
+
+                s.CurrentDirection = newDir;
+                s.CurrentSpeed = newSpd;
+                s.LastUpdate = now;
+
+                _windsockStates[windsock] = s;
             }
 
-            _windSimulationTimer.Interval = _windRandom.Next(1000, 2000);
+            // Adjust timer interval dynamically: faster during variable/gusty conditions
+            int minIvl = (vrb || _baseWindGust > _baseWindSpeed) ? 400 : 900;
+            int maxIvl = (vrb || _baseWindGust > _baseWindSpeed) ? 1100 : 2200;
+            _windSimulationTimer.Interval = _windRandom.Next(minIvl, maxIvl);
 
             if (_windsockStates.Count > 0)
             {
                 Invalidate();
             }
+        }
+
+        private static int NormalizeDegrees(int deg)
+        {
+            int d = deg % 360;
+            if (d < 0) d += 360;
+            return d;
+        }
+
+        private static double MoveTowards(double current, double target, double maxDelta)
+        {
+            double delta = target - current;
+            if (Math.Abs(delta) <= maxDelta) return target;
+            return current + Math.Sign(delta) * maxDelta;
+        }
+
+        private static double MoveTowardsAngle(double current, double target, double maxDelta)
+        {
+            double c = NormalizeDegrees((int)Math.Round(current));
+            double t = NormalizeDegrees((int)Math.Round(target));
+            double delta = DeltaAngle(c, t);
+            if (Math.Abs(delta) <= maxDelta) return t;
+            return NormalizeDegrees((int)Math.Round(c + Math.Sign(delta) * maxDelta));
+        }
+
+        private static double DeltaAngle(double current, double target)
+        {
+            double d = (target - current) % 360.0;
+            if (d > 180.0) d -= 360.0;
+            if (d < -180.0) d += 360.0;
+            return d;
         }
 
         public class StopbarClickEventArgs : EventArgs
@@ -1302,6 +1550,216 @@ namespace BARS.Windows
 
             public string BarsId { get; private set; }
             public MouseButtons Button { get; private set; }
+        }
+
+        // ---------------- Runway/crosswind helpers ----------------
+        private async Task FetchRunwaysAsync(string icao)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(icao)) return;
+                // v2.stopbars.com provides runway endpoints for computing headings and proximity
+                var url = $"https://v2.stopbars.com/airports?icao={Uri.EscapeDataString(icao)}";
+                var json = await _httpClient.GetStringAsync(url).ConfigureAwait(false);
+                var api = JsonConvert.DeserializeObject<AirportApiResponse>(json);
+                if (api?.runways == null || api.runways.Count == 0)
+                {
+                    _runways = null;
+                    return;
+                }
+
+                var list = new List<RunwayInfo>();
+                foreach (var rwy in api.runways)
+                {
+                    if (!TryParseDouble(rwy.le_latitude_deg, out double leLat) ||
+                        !TryParseDouble(rwy.le_longitude_deg, out double leLon) ||
+                        !TryParseDouble(rwy.he_latitude_deg, out double heLat) ||
+                        !TryParseDouble(rwy.he_longitude_deg, out double heLon))
+                    {
+                        continue;
+                    }
+                    var le = new GeoPoint(leLon, leLat);
+                    var he = new GeoPoint(heLon, heLat);
+                    double heading = BearingDegrees(leLat, leLon, heLat, heLon);
+                    list.Add(new RunwayInfo
+                    {
+                        LeIdent = rwy.le_ident,
+                        HeIdent = rwy.he_ident,
+                        Le = le,
+                        He = he,
+                        Heading = heading
+                    });
+                }
+
+                _runways = list.Count > 0 ? list : null;
+                // Trigger repaint when runway data arrives
+                if (_runways != null && _runways.Count > 0)
+                {
+                    if (IsHandleCreated)
+                    {
+                        BeginInvoke((Action)(Invalidate));
+                    }
+                    else
+                    {
+                        Invalidate();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"Failed to fetch runways for {icao}: {ex.Message}");
+                _runways = null;
+            }
+        }
+
+        private static bool TryParseDouble(string s, out double v)
+        {
+            return double.TryParse(s, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v);
+        }
+
+        /// <summary>
+        /// Computes crosswind and tailwind components for the windsock against the nearest runway.
+        /// Also ensures the runway heading used matches the closest runway end (e.g., HE -> use LE→HE heading and HE ident, LE -> use HE→LE).
+        /// </summary>
+        /// <param name="windsock">The windsock to evaluate.</param>
+        /// <param name="crosswind">Absolute crosswind component in knots.</param>
+        /// <param name="tailwind">Tailwind component in knots (>= 0). 0 when headwind or calm.</param>
+        private void ComputeWindComponentsForWindsock(Windsock windsock, out float crosswind, out float tailwind)
+        {
+            crosswind = 0f;
+            tailwind = 0f;
+            if (_runways == null || _runways.Count == 0) return;
+            if (!_windsockStates.TryGetValue(windsock, out var wind)) return;
+
+            // Choose nearest runway by shortest distance to runway segment in a local tangent plane
+            RunwayInfo nearest = null;
+            double nearestDist = double.MaxValue;
+            foreach (var rwy in _runways)
+            {
+                double d = DistancePointToSegmentMeters(windsock.Position, rwy.Le, rwy.He);
+                if (d < nearestDist)
+                {
+                    nearestDist = d;
+                    nearest = rwy;
+                }
+            }
+            if (nearest == null) return;
+
+            int windDir = NormalizeDegrees(wind.CurrentDirection);
+            int windSpd = Math.Max(0, wind.CurrentSpeed);
+            if (windSpd <= 0) return;
+
+            // Decide which runway direction to use based on which end is closer to the windsock.
+            // If closer to HE end (e.g., ident 24), use heading LE->HE (~240). If closer to LE end, use HE->LE (~060).
+            double distToLE = DistancePointToSegmentMeters(windsock.Position, nearest.Le, nearest.Le); // distance to point LE
+            double distToHE = DistancePointToSegmentMeters(windsock.Position, nearest.He, nearest.He); // distance to point HE
+            double heading;
+            if (distToHE <= distToLE)
+            {
+                // Use LE -> HE (HE ident heading)
+                heading = nearest.Heading; // already LE->HE
+            }
+            else
+            {
+                // Use HE -> LE (LE ident heading)
+                heading = BearingDegrees(nearest.He.Latitude, nearest.He.Longitude, nearest.Le.Latitude, nearest.Le.Longitude);
+            }
+
+            double delta = AngleDifferenceDegrees(windDir, heading);
+            double cross = Math.Abs(windSpd * Math.Sin(DegToRad(delta)));
+            double head = windSpd * Math.Cos(DegToRad(delta)); // positive = headwind, negative = tailwind
+            double tail = Math.Max(0.0, -head);
+
+            crosswind = (float)cross;
+            tailwind = (float)tail;
+        }
+
+        private static double AngleDifferenceDegrees(double a, double b)
+        {
+            double d = (a - b) % 360.0;
+            if (d < -180) d += 360;
+            if (d > 180) d -= 360;
+            return Math.Abs(d);
+        }
+
+        private static double DegToRad(double deg) => deg * Math.PI / 180.0;
+
+        private static double BearingDegrees(double lat1, double lon1, double lat2, double lon2)
+        {
+            double φ1 = DegToRad(lat1);
+            double φ2 = DegToRad(lat2);
+            double Δλ = DegToRad(lon2 - lon1);
+            double y = Math.Sin(Δλ) * Math.Cos(φ2);
+            double x = Math.Cos(φ1) * Math.Sin(φ2) - Math.Sin(φ1) * Math.Cos(φ2) * Math.Cos(Δλ);
+            double θ = Math.Atan2(y, x);
+            double brng = (θ * 180.0 / Math.PI + 360.0) % 360.0;
+            return brng;
+        }
+
+        private static double DistancePointToSegmentMeters(GeoPoint p, GeoPoint a, GeoPoint b)
+        {
+            // Project lat/lon to local tangent plane (equirectangular) around point p
+            double lat0 = p.Latitude * Math.PI / 180.0;
+            double mPerDegLat = 111320.0;
+            double mPerDegLon = Math.Cos(lat0) * 111320.0;
+
+            var Ax = (a.Longitude - p.Longitude) * mPerDegLon;
+            var Ay = (a.Latitude - p.Latitude) * mPerDegLat;
+            var Bx = (b.Longitude - p.Longitude) * mPerDegLon;
+            var By = (b.Latitude - p.Latitude) * mPerDegLat;
+            var Px = 0.0; // by definition of local frame centered at p
+            var Py = 0.0;
+
+            // Vector operations in 2D
+            double ABx = Bx - Ax;
+            double ABy = By - Ay;
+            double APx = Px - Ax;
+            double APy = Py - Ay;
+            double ab2 = ABx * ABx + ABy * ABy;
+            if (ab2 <= 1e-6)
+            {
+                // Degenerate segment – return distance to A
+                return Math.Sqrt(APx * APx + APy * APy);
+            }
+            double t = (APx * ABx + APy * ABy) / ab2;
+            t = Math.Max(0, Math.Min(1, t));
+            double Cx = Ax + t * ABx;
+            double Cy = Ay + t * ABy;
+            double dx = Px - Cx;
+            double dy = Py - Cy;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private class RunwayInfo
+        {
+            public string LeIdent { get; set; }
+            public string HeIdent { get; set; }
+            public GeoPoint Le { get; set; }
+            public GeoPoint He { get; set; }
+            public double Heading { get; set; }
+        }
+
+        private class AirportApiResponse
+        {
+            public string icao { get; set; }
+            public double latitude { get; set; }
+            public double longitude { get; set; }
+            public string name { get; set; }
+            public List<RunwayApi> runways { get; set; }
+        }
+
+        private class RunwayApi
+        {
+            public int id { get; set; }
+            public string airport_icao { get; set; }
+            public string length_ft { get; set; }
+            public string width_ft { get; set; }
+            public string le_ident { get; set; }
+            public string le_latitude_deg { get; set; }
+            public string le_longitude_deg { get; set; }
+            public string he_ident { get; set; }
+            public string he_latitude_deg { get; set; }
+            public string he_longitude_deg { get; set; }
         }
     }
 
@@ -1348,10 +1806,22 @@ namespace BARS.Windows
             CurrentDirection = direction;
             CurrentSpeed = speed;
             LastUpdate = DateTime.Now;
+            TurbulenceFactor = 0f; // lazily randomized on first tick
+            GustActive = false;
+            GustUntil = DateTime.MinValue;
+            GustSpeed = speed;
         }
 
         public int CurrentDirection { get; set; }
         public int CurrentSpeed { get; set; }
         public DateTime LastUpdate { get; set; }
+
+        // Per-windsock variability
+        public float TurbulenceFactor { get; set; }
+
+        // Gust event state for this windsock
+        public bool GustActive { get; set; }
+        public DateTime GustUntil { get; set; }
+        public int GustSpeed { get; set; }
     }
 }

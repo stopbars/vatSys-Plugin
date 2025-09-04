@@ -6,6 +6,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace BARS.Util
 {
@@ -106,8 +107,26 @@ namespace BARS.Util
 
                 return true;
             }
+            catch (WebSocketException wse)
+            {
+                var status = TryParseHttpStatusFromException(wse);
+                string friendly = BuildFriendlyConnectError(status);
+                if (status.HasValue)
+                {
+                    OnError?.Invoke(this, friendly);
+                    logger.Error($"WebSocket handshake failed (HTTP {status}): {friendly}");
+                }
+                else
+                {
+                    OnError?.Invoke(this, $"Connection error: {wse.Message}");
+                    logger.Error($"WebSocket connection error: {wse.Message}");
+                }
+                _isConnected = false;
+                return false;
+            }
             catch (Exception ex)
             {
+                // Fallback generic error
                 OnError?.Invoke(this, $"Connection error: {ex.Message}");
                 logger.Error($"WebSocket connection error: {ex.Message}");
                 _isConnected = false;
@@ -193,6 +212,43 @@ namespace BARS.Util
             _apiKey = apiKey;
             _airport = airport;
             _controllerId = controllerId;
+        }
+
+        /// <summary>
+        /// Apply a new API key to this connection. If currently connected, will gracefully
+        /// reconnect using the new key. If not connected, just updates the key for the next connect.
+        /// </summary>
+        public async Task ApplyNewApiKey(string newApiKey)
+        {
+            if (string.Equals(_apiKey, newApiKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            // If key is empty, update stored value but don't attempt to reconnect
+            if (string.IsNullOrWhiteSpace(newApiKey))
+            {
+                _apiKey = newApiKey;
+                return;
+            }
+
+            _apiKey = newApiKey;
+
+            // Reconnect if we have an active socket or were previously connected
+            bool shouldReconnect = _webSocket != null;
+            if (shouldReconnect)
+            {
+                try
+                {
+                    await Disconnect();
+                    await Task.Delay(250); // short pause to allow cleanup
+                    await Connect();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"API key apply reconnect failed for airport {_airport}: {ex.Message}");
+                }
+            }
         }
 
         // Check if connected to the server
@@ -736,6 +792,44 @@ namespace BARS.Util
                 _heartbeatTimer.Stop();
                 _heartbeatTimer.Dispose();
                 _heartbeatTimer = null;
+            }
+        }
+
+        // Extract HTTP status code from handshake-related exceptions where available
+        private int? TryParseHttpStatusFromException(Exception ex)
+        {
+            if (ex == null) return null;
+
+            // Common message patterns seen from ClientWebSocket handshake failures
+            // e.g., "The server returned status code '401' when status code '101' was expected."
+            // or    "The remote server returned an error: (400) Bad Request."
+            var msg = ex.Message ?? string.Empty;
+            var m1 = Regex.Match(msg, @"status code '\s*(\d{3})\s*'", RegexOptions.IgnoreCase);
+            if (m1.Success && int.TryParse(m1.Groups[1].Value, out int code1)) return code1;
+
+            var m2 = Regex.Match(msg, @"\((\d{3})\)\s*[A-Za-z ]+", RegexOptions.IgnoreCase);
+            if (m2.Success && int.TryParse(m2.Groups[1].Value, out int code2)) return code2;
+
+            // Recurse into inner exceptions to try to find a status code
+            return TryParseHttpStatusFromException(ex.InnerException);
+        }
+
+        private string BuildFriendlyConnectError(int? httpStatus)
+        {
+            if (!httpStatus.HasValue)
+            {
+                return "Unable to connect to the server.";
+            }
+            switch (httpStatus.Value)
+            {
+                case 400:
+                    return $"Invalid ICAO code '{_airport}'.";
+                case 401:
+                    return "API Key is invalid.";
+                case 403:
+                    return "Not connected to VATSIM.";
+                default:
+                    return $"Connection failed (HTTP {httpStatus}).";
             }
         }
     }
