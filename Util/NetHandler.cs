@@ -16,6 +16,7 @@ namespace BARS.Util
         private const int HEARTBEAT_INTERVAL = 30000;          // 30s heartbeat interval
         private const int HEARTBEAT_TIMEOUT = 60000;           // 60s timeout before reconnect
         private const int SERVER_UPDATE_DELAY = 100;           // Small settle delay on inbound state
+        private const int STOPBAR_CROSSING_RAISE_DELAY_MS = 10000; // Delay before raising after crossing
 
         private readonly object _updateLock = new object();
         private readonly Logger logger = new Logger("NetHandler");
@@ -39,6 +40,8 @@ namespace BARS.Util
         private readonly Dictionary<string, PendingUpdate> _pendingLocalUpdates = new Dictionary<string, PendingUpdate>();
         private readonly TimeSpan _pendingGrace = TimeSpan.FromMilliseconds(900); // window to ignore conflicting server reversions
         private readonly TimeSpan _verificationDelay = TimeSpan.FromMilliseconds(450); // delay before post-send verification snapshot
+                                                                                       // Track pending delayed raises triggered by STOPBAR_CROSSING to avoid duplicates
+        private readonly Dictionary<string, CancellationTokenSource> _pendingCrossingRaises = new Dictionary<string, CancellationTokenSource>();
 
         private class PendingUpdate
         {
@@ -452,6 +455,95 @@ namespace BARS.Util
                         string disconnectedId = message.data.controllerId;
                         logger.Log($"Controller {disconnectedId} disconnected from airport {_airport}");
                         break;
+
+                    case "STOPBAR_CROSSING":
+                        {
+                            string objectId = message.data.objectId;
+                            string crossingPilotId = message.data.controllerId;
+
+                            logger.Log($"Received STOPBAR_CROSSING for {objectId} (by pilot {crossingPilotId}) at airport {_airport}");
+
+                            // Find the stopbar in our local registry
+                            var stopbar = ControllerHandler.GetStopbar(_airport, objectId);
+                            if (stopbar == null)
+                            {
+                                logger.Log($"STOPBAR_CROSSING for unknown stopbar {objectId} – no action taken.");
+                                break;
+                            }
+
+                            // If the stopbar is already up, nothing to do (also cancel any pending delayed raise)
+                            if (stopbar.State)
+                            {
+                                lock (_updateLock)
+                                {
+                                    if (_pendingCrossingRaises.TryGetValue(objectId, out var existingCts))
+                                    {
+                                        try { existingCts.Cancel(); existingCts.Dispose(); } catch { }
+                                        _pendingCrossingRaises.Remove(objectId);
+                                    }
+                                }
+                                logger.Log($"STOPBAR_CROSSING for {objectId} ignored – stopbar already raised.");
+                                break;
+                            }
+
+                            // Schedule a delayed raise if not already pending
+                            bool schedule = false;
+                            CancellationTokenSource cts;
+                            lock (_updateLock)
+                            {
+                                if (_pendingCrossingRaises.ContainsKey(objectId))
+                                {
+                                    logger.Log($"STOPBAR_CROSSING for {objectId} – delayed raise already scheduled; ignoring duplicate event.");
+                                    schedule = false;
+                                    cts = null;
+                                }
+                                else
+                                {
+                                    cts = new CancellationTokenSource();
+                                    _pendingCrossingRaises[objectId] = cts;
+                                    schedule = true;
+                                }
+                            }
+
+                            if (schedule)
+                            {
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await Task.Delay(STOPBAR_CROSSING_RAISE_DELAY_MS, cts.Token);
+                                        if (cts.IsCancellationRequested) return;
+
+                                        // Re-fetch and verify it still needs raising
+                                        var sb = ControllerHandler.GetStopbar(_airport, objectId);
+                                        if (sb != null && !sb.State)
+                                        {
+                                            // Do not set _processingNetworkUpdate here; we want this to propagate to server
+                                            ControllerHandler.SetStopbarState(_airport, objectId, true, WindowType.Legacy, sb.AutoRaise);
+                                            logger.Log($"Auto-raised stopbar {objectId} after STOPBAR_CROSSING delay.");
+                                        }
+                                    }
+                                    catch (TaskCanceledException) { }
+                                    catch (Exception ex)
+                                    {
+                                        logger.Error($"Error performing delayed raise for {objectId}: {ex.Message}");
+                                    }
+                                    finally
+                                    {
+                                        lock (_updateLock)
+                                        {
+                                            if (_pendingCrossingRaises.TryGetValue(objectId, out var toDispose) && toDispose == cts)
+                                            {
+                                                _pendingCrossingRaises.Remove(objectId);
+                                            }
+                                        }
+                                        try { cts.Dispose(); } catch { }
+                                    }
+                                });
+                                logger.Log($"Scheduled delayed raise for {objectId} in {STOPBAR_CROSSING_RAISE_DELAY_MS} ms due to STOPBAR_CROSSING.");
+                            }
+                            break;
+                        }
 
                     case "ERROR":
                         string errorMsg = message.data.message;
