@@ -71,19 +71,24 @@ namespace BARS.Windows
         {
             try
             {
-                string profilePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "BARS", "vatSys", $"{Airport}_{ActiveProfile.Replace("/", "-")}.xml");
-
-                if (!File.Exists(profilePath))
+                string url = CdnProfiles.GetLegacyProfileUrl(Airport, ActiveProfile);
+                if (string.IsNullOrEmpty(url))
                 {
-                    MessageBox.Show($"Profile file not found: {profilePath}", "Error",
+                    MessageBox.Show($"Online profile not found for {Airport} - {ActiveProfile}", "Error",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                string xml = CdnProfiles.DownloadXml(url);
+                if (string.IsNullOrWhiteSpace(xml))
+                {
+                    MessageBox.Show($"Failed to download profile XML from CDN: {url}", "Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
                 XmlDocument doc = new XmlDocument();
-                doc.Load(profilePath);
+                doc.LoadXml(xml);
 
                 // Configure runways
                 ConfigureRunways(doc);
@@ -199,31 +204,25 @@ namespace BARS.Windows
             {
                 string barsId = stopbar.SelectSingleNode("BARSId").InnerText;
                 string displayName = stopbar.SelectSingleNode("DisplayName").InnerText;
+
                 string leadOnId = null;
-                // Accept several possible tag name variants in case the profile XML differs
-                string[] leadOnTagCandidates = new[] { "LeadOnId", "LeadOnID", "LeadOn", "LeadonId", "LeadOnid" };
-                XmlNode leadOnNode = null;
-                foreach (var candidate in leadOnTagCandidates)
-                {
-                    leadOnNode = stopbar.SelectSingleNode(candidate);
-                    if (leadOnNode != null) break;
-                }
+                XmlNode leadOnNode = stopbar.SelectSingleNode("LeadOnId");
                 if (leadOnNode != null)
                 {
                     leadOnId = leadOnNode.InnerText?.Trim();
                     if (string.IsNullOrEmpty(leadOnId))
                     {
-                        logger.Log($"Profile stopbar {barsId}: Found lead-on tag '{leadOnNode.Name}' but it was empty – ignoring.");
-                        leadOnId = null; // ignore empty tag
+                        logger.Log($"Profile stopbar {barsId}: LeadOnId is empty – ignoring.");
+                        leadOnId = null;
                     }
                     else
                     {
-                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}' from tag '{leadOnNode.Name}'.");
+                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}'.");
                     }
                 }
                 else
                 {
-                    logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found (looked for: {string.Join(", ", leadOnTagCandidates)}).");
+                    logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found.");
                 }
 
                 if (!string.IsNullOrEmpty(leadOnId))

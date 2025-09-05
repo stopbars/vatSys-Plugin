@@ -24,6 +24,12 @@ namespace BARS
         public static List<Profiles> ProfileWindows = new List<Profiles>();
         public CustomToolStripMenuItem configMenu;
         private const int MAX_AIRPORTS = 5;
+
+        private static readonly HashSet<string> SupportedAirports = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "YSSY", "YPPH", "YBBN", "YSCB", "YMML"
+        };
+
         private static Dictionary<string, string> ActiveProfiles = new Dictionary<string, string>();
         private static List<Controller_INTAS> INTASWindows = new List<Controller_INTAS>();
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
@@ -39,7 +45,7 @@ namespace BARS
             vatsys.Network.Disconnected += Vatsys_ConnectionChanged;
 
             Directory.CreateDirectory(dataPath);
-            Directory.CreateDirectory(Path.Combine(dataPath, "vatSys-Airports"));
+            Directory.CreateDirectory(Path.Combine(dataPath, "vatSys"));
             if (File.Exists($"{dataPath}\\BARS-V2.log")) File.Delete($"{dataPath}\\BARS-V2.log");
 
             netManager.Initialize(Properties.Settings.Default.APIKey);
@@ -62,6 +68,18 @@ namespace BARS
         {
             if (string.IsNullOrWhiteSpace(icao))
                 return false; string formattedIcao = icao.Trim().ToUpper();
+
+            // Validate supported airports
+            if (!SupportedAirports.Contains(formattedIcao))
+            {
+                MessageBox.Show(
+                    "BARS vatSys only supports australian airports.",
+                    "Unsupported Airport",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                return false;
+            }
 
             if (ControlledAirports.Contains(formattedIcao))
                 return false;
@@ -227,6 +245,7 @@ namespace BARS
                 MMI.InvokeOnGUI(() => profileWindow.SyncActiveProfilesStatus());
             }
         }
+
         public static void OpenINTASAirport(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
@@ -235,16 +254,11 @@ namespace BARS
             if (!ControlledAirports.Contains(formattedIcao))
                 return;
 
-            string barsProfilePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BARS",
-                "vatSys");
-
-            string profileFilePath = Path.Combine(barsProfilePath, $"{formattedIcao}.xml");
-
-            if (!File.Exists(profileFilePath))
+            // Gate on CDN availability instead of local file
+            string url = CdnProfiles.GetAirportXmlUrl(formattedIcao);
+            if (string.IsNullOrEmpty(url))
             {
-                MessageBox.Show($"No profile found for {formattedIcao}.\nExpected file: {formattedIcao}.xml",
+                MessageBox.Show($"No online profile found for {formattedIcao}.",
                     "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }

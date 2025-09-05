@@ -7,13 +7,16 @@ namespace BARS.Util
 {
     public class NetManager
     {
-        private static NetManager _instance;
+        private const int DISCONNECT_GRACE_MS = 10000;
         private static readonly object _lock = new object();
+        private static NetManager _instance;
+        private readonly Dictionary<string, NetHandler.ConnectionEventHandler> _connChangedSubscriptions = new Dictionary<string, NetHandler.ConnectionEventHandler>();
         private readonly Dictionary<string, NetHandler> _connections;
         private readonly Dictionary<string, CancellationTokenSource> _disconnectGrace = new Dictionary<string, CancellationTokenSource>();
-        private readonly Dictionary<string, NetHandler.ConnectionEventHandler> _connChangedSubscriptions = new Dictionary<string, NetHandler.ConnectionEventHandler>();
-        private const int DISCONNECT_GRACE_MS = 10000; // 10 seconds grace on disconnect
+
+        // 10 seconds grace on disconnect
         private readonly Logger _logger = new Logger("NetManager");
+
         private string _apiKey;
         private CancellationTokenSource _apiUpdateDebounceCts;
 
@@ -129,6 +132,11 @@ namespace BARS.Util
             _apiKey = apiKey;
         }
 
+        public bool IsAirportConnected(string airport)
+        {
+            return _connections.TryGetValue(airport, out NetHandler handler) && handler.IsConnected();
+        }
+
         /// <summary>
         /// Update the API key at runtime and (debounced) reinitialize existing connections to use it
         /// without requiring a full application restart.
@@ -181,11 +189,6 @@ namespace BARS.Util
                     // Best-effort; individual handlers log their own errors
                 }
             }, token);
-        }
-
-        public bool IsAirportConnected(string airport)
-        {
-            return _connections.TryGetValue(airport, out NetHandler handler) && handler.IsConnected();
         }
 
         private async Task HandleConnectionChangedAsync(string airport, bool isConnected)

@@ -121,6 +121,9 @@ namespace BARS.Windows
         {
             try
             {
+
+                airportMapControl.SetWind(0, 0);
+
                 LoadMetar(this.Airport);
 
                 originalFormSize = this.ClientSize;
@@ -137,8 +140,6 @@ namespace BARS.Windows
                 ApplyResize();
                 airportMapControl.Invalidate();
                 this.Refresh();
-
-                airportMapControl.SetWind(0, 0);
 
                 var delayTimer = new Timer { Interval = 50, Enabled = true };
                 delayTimer.Tick += (s, args) =>
@@ -481,7 +482,8 @@ namespace BARS.Windows
                 return;
             }
 
-            airportMapControl.UpdateStopbarState(stopbar.BARSId, stopbar.State);
+            // Pass AutoRaise so the map only shows countdowns when appropriate
+            airportMapControl.UpdateStopbarState(stopbar.BARSId, stopbar.State, stopbar.AutoRaise);
 
             airportMapControl.UpdateLeadOnLightsForStopbar(stopbar.BARSId, stopbar.State);
 

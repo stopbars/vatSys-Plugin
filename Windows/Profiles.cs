@@ -1,4 +1,5 @@
 ﻿using System;
+using BARS.Util;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -227,38 +228,11 @@ namespace BARS.Windows
 
         private void LoadProfiles()
         {
-
             pnl_profiles.Controls.Clear();
             profileButtons.Clear();
 
-
-            string barsProfilePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BARS",
-                "vatSys");
-
-
-            if (!Directory.Exists(barsProfilePath))
-            {
-                Directory.CreateDirectory(barsProfilePath);
-                return;
-            }
-
-
-            var profileFiles = Directory.GetFiles(barsProfilePath, $"{AirportIcao}_*.xml");
-            var profiles = new List<string>();
-
-            foreach (var file in profileFiles)
-            {
-
-                string fileName = Path.GetFileNameWithoutExtension(file);
-                string profileName = fileName.Substring(AirportIcao.Length + 1).Replace("-", "/");
-                profiles.Add(profileName);
-            }
-
-
-            profiles.Sort();
-
+            // Fetch legacy profile names from CDN index
+            var profiles = CdnProfiles.GetLegacyProfileNames(AirportIcao) ?? new List<string>();
 
             for (int i = 0; i < profiles.Count; i++)
             {
@@ -270,20 +244,12 @@ namespace BARS.Windows
 
         private void LoadINTASInterface()
         {
-
             pnl_profiles.Controls.Clear();
             profileButtons.Clear();
 
-
-            string barsProfilePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BARS",
-                "vatSys");
-
-
-            string profileFilePath = Path.Combine(barsProfilePath, $"{AirportIcao}.xml");
-
-            if (File.Exists(profileFilePath))
+            // Show open button if CDN has an INTAS map for this airport
+            var cdnUrl = CdnProfiles.GetAirportXmlUrl(AirportIcao);
+            if (!string.IsNullOrEmpty(cdnUrl))
             {
                 var openButton = new GenericButton
                 {
@@ -307,10 +273,9 @@ namespace BARS.Windows
             }
             else
             {
-
                 var noProfileLabel = new TextLabel
                 {
-                    Text = $"No profile found for {AirportIcao}\nExpected file: {AirportIcao}.xml",
+                    Text = $"No online profile found for {AirportIcao}",
                     Size = new Size(pnl_profiles.Width - 20, 60),
                     Location = new Point(10, 10),
                     Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),

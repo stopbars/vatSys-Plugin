@@ -13,17 +13,21 @@ namespace BARS.Util
 
     public class ControllerHandler
     {
-        private static readonly Logger _logger = new Logger("ControllerHandler");
-        private static Dictionary<string, Dictionary<string, Stopbar>> _stopbars = new Dictionary<string, Dictionary<string, Stopbar>>();
         // Debounce map to prevent rapid-fire user toggles causing network/state feedback loops
         private static readonly Dictionary<string, DateTime> _lastToggle = new Dictionary<string, DateTime>();
-        private static readonly object _toggleLock = new object();
+
+        private static readonly Logger _logger = new Logger("ControllerHandler");
+
         // Minimum interval between successive UI toggles of the same stopbar
         private static readonly TimeSpan _minToggleInterval = TimeSpan.FromMilliseconds(250);
 
-        public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
+        private static readonly object _toggleLock = new object();
+        private static Dictionary<string, Dictionary<string, Stopbar>> _stopbars = new Dictionary<string, Dictionary<string, Stopbar>>();
+
         // Event for new stopbar registration
         public static event EventHandler<StopbarEventArgs> StopbarRegistered;
+
+        public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
 
         public static Stopbar GetStopbar(string airport, string barsId)
         {
@@ -223,14 +227,14 @@ namespace BARS.Util
         public string BARSId { get; set; }
 
         /// <summary>
-        /// Optional lead-on identifier. Lead-on is considered ON when stopbar is OFF.
-        /// </summary>
-        public string LeadOnId { get; set; }
-
-        /// <summary>
         /// Display name of the stopbar
         /// </summary>
         public string DisplayName { get; set; }
+
+        /// <summary>
+        /// Optional lead-on identifier. Lead-on is considered ON when stopbar is OFF.
+        /// </summary>
+        public string LeadOnId { get; set; }
 
         public bool State { get; set; }
 

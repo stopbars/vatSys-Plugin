@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="15.0"
+  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -89,9 +90,10 @@
     <Compile Include="BARS.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Util\AirportMapData.cs" />
+    <Compile Include="Util\CdnProfiles.cs" />
     <Compile Include="Util\ControllerHandler.cs" />
     <Compile Include="Util\Logger.cs" />
-  <Compile Include="Util\NetworkSyncManager.cs" />
+    <Compile Include="Util\NetworkSyncManager.cs" />
     <Compile Include="Util\NetHandler.cs" />
     <Compile Include="Util\NetManager.cs" />
     <Compile Include="Windows\AirportMapControl.cs">
@@ -192,6 +194,6 @@ xcopy /y "$(TargetDir)System.Buffers.dll" "$(TargetDir)BARS\"
 xcopy /y "$(TargetDir)System.Numerics.Vectors.dll" "$(TargetDir)BARS\"
 xcopy /y "$(TargetDir)System.Runtime.CompilerServices.Unsafe.dll" "$(TargetDir)BARS\"
 xcopy /y "$(TargetDir)System.Text.Encodings.Web.dll" "$(TargetDir)BARS\"
-</PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
 </Project>

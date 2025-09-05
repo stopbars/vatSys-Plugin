@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
 
 namespace BARS.Util
 {
@@ -14,42 +14,41 @@ namespace BARS.Util
     {
         // Timing / protocol constants
         private const int HEARTBEAT_INTERVAL = 30000;          // 30s heartbeat interval
+
         private const int HEARTBEAT_TIMEOUT = 60000;           // 60s timeout before reconnect
         private const int SERVER_UPDATE_DELAY = 100;           // Small settle delay on inbound state
         private const int STOPBAR_CROSSING_RAISE_DELAY_MS = 10000; // Delay before raising after crossing
 
+        // Track pending delayed raises triggered by STOPBAR_CROSSING to avoid duplicates
+        private readonly Dictionary<string, CancellationTokenSource> _pendingCrossingRaises = new Dictionary<string, CancellationTokenSource>();
+
+        private readonly TimeSpan _pendingGrace = TimeSpan.FromMilliseconds(900);
+        private readonly Dictionary<string, PendingUpdate> _pendingLocalUpdates = new Dictionary<string, PendingUpdate>();
+        private readonly SemaphoreSlim _sendSemaphore = new SemaphoreSlim(1, 1);
+        private readonly TimeSpan _snapshotMinInterval = TimeSpan.FromSeconds(2);
         private readonly object _updateLock = new object();
+
+        // window to ignore conflicting server reversions
+        private readonly TimeSpan _verificationDelay = TimeSpan.FromMilliseconds(450);
+
         private readonly Logger logger = new Logger("NetHandler");
-        private readonly SemaphoreSlim _sendSemaphore = new SemaphoreSlim(1, 1); // serialize websocket sends
+        // serialize websocket sends
 
         private string _airport;
         private string _apiKey;
-        private string _controllerId;
         private CancellationTokenSource _cancellationTokenSource;
+        private string _controllerId;
+        private bool _deferredSeedMode = false;
         private System.Timers.Timer _heartbeatTimer;
         private bool _isConnected = false;
         private DateTime _lastHeartbeatReceived;
-        private ClientWebSocket _webSocket;
+        private DateTime _lastSnapshotRequest = DateTime.MinValue;
 
         // Local state cache (includes lead-on object IDs as separate entries when we send them)
         private Dictionary<string, object> _localStopbarStates = new Dictionary<string, object>();
-        private bool _processingNetworkUpdate = false;
-        private DateTime _lastSnapshotRequest = DateTime.MinValue;
-        private readonly TimeSpan _snapshotMinInterval = TimeSpan.FromSeconds(2);
-        private bool _deferredSeedMode = false; // true when initial state empty but profile not yet loaded
-        private readonly Dictionary<string, PendingUpdate> _pendingLocalUpdates = new Dictionary<string, PendingUpdate>();
-        private readonly TimeSpan _pendingGrace = TimeSpan.FromMilliseconds(900); // window to ignore conflicting server reversions
-        private readonly TimeSpan _verificationDelay = TimeSpan.FromMilliseconds(450); // delay before post-send verification snapshot
-                                                                                       // Track pending delayed raises triggered by STOPBAR_CROSSING to avoid duplicates
-        private readonly Dictionary<string, CancellationTokenSource> _pendingCrossingRaises = new Dictionary<string, CancellationTokenSource>();
 
-        private class PendingUpdate
-        {
-            public bool State { get; set; }
-            public DateTime SentAt { get; set; }
-            public bool VerificationScheduled { get; set; }
-            public int RetryCount { get; set; }
-        }
+        private bool _processingNetworkUpdate = false;
+        private ClientWebSocket _webSocket;
 
         public NetHandler(string connectionId = null)
         {
@@ -59,14 +58,55 @@ namespace BARS.Util
 
         // Events
         public delegate void ConnectionEventHandler(object sender, bool isConnected);
+
         public delegate void ErrorEventHandler(object sender, string errorMessage);
+
         public delegate void StateUpdateEventHandler(object sender, Dictionary<string, object> stopbarStates);
 
         public event ConnectionEventHandler OnConnectionChanged;
+
         public event ErrorEventHandler OnError;
+
         public event StateUpdateEventHandler OnStateUpdate;
 
         public string ConnectionId { get; private set; }
+
+        /// <summary>
+        /// Apply a new API key to this connection. If currently connected, will gracefully
+        /// reconnect using the new key. If not connected, just updates the key for the next connect.
+        /// </summary>
+        public async Task ApplyNewApiKey(string newApiKey)
+        {
+            if (string.Equals(_apiKey, newApiKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            // If key is empty, update stored value but don't attempt to reconnect
+            if (string.IsNullOrWhiteSpace(newApiKey))
+            {
+                _apiKey = newApiKey;
+                return;
+            }
+
+            _apiKey = newApiKey;
+
+            // Reconnect if we have an active socket or were previously connected
+            bool shouldReconnect = _webSocket != null;
+            if (shouldReconnect)
+            {
+                try
+                {
+                    await Disconnect();
+                    await Task.Delay(250); // short pause to allow cleanup
+                    await Connect();
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"API key apply reconnect failed for airport {_airport}: {ex.Message}");
+                }
+            }
+        }
 
         // Connect to the WebSocket server
         public async Task<bool> Connect()
@@ -217,47 +257,37 @@ namespace BARS.Util
             _controllerId = controllerId;
         }
 
-        /// <summary>
-        /// Apply a new API key to this connection. If currently connected, will gracefully
-        /// reconnect using the new key. If not connected, just updates the key for the next connect.
-        /// </summary>
-        public async Task ApplyNewApiKey(string newApiKey)
-        {
-            if (string.Equals(_apiKey, newApiKey, StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            // If key is empty, update stored value but don't attempt to reconnect
-            if (string.IsNullOrWhiteSpace(newApiKey))
-            {
-                _apiKey = newApiKey;
-                return;
-            }
-
-            _apiKey = newApiKey;
-
-            // Reconnect if we have an active socket or were previously connected
-            bool shouldReconnect = _webSocket != null;
-            if (shouldReconnect)
-            {
-                try
-                {
-                    await Disconnect();
-                    await Task.Delay(250); // short pause to allow cleanup
-                    await Connect();
-                }
-                catch (Exception ex)
-                {
-                    logger.Error($"API key apply reconnect failed for airport {_airport}: {ex.Message}");
-                }
-            }
-        }
-
         // Check if connected to the server
         public bool IsConnected()
         {
             return _isConnected && _webSocket != null && _webSocket.State == WebSocketState.Open;
+        }
+
+        /// <summary>
+        /// Called by ControllerHandler when a stopbar gets registered. If we deferred seeding because
+        /// the profile wasn't loaded at connection time, seed each newly registered stopbar now.
+        /// </summary>
+        /// <param name="stopbar">The newly registered stopbar.</param>
+        public void NotifyStopbarRegistered(Stopbar stopbar)
+        {
+            if (!_deferredSeedMode) return;
+            // Seed this stopbar (and its lead-on) with lead-on forced FALSE
+            _ = UpdateStopbar(stopbar, true);
+        }
+
+        // Public method to request a snapshot (debounced)
+        public async Task RequestStateSnapshot(bool force = false)
+        {
+            if (!IsConnected()) return;
+            if (!force && (DateTime.UtcNow - _lastSnapshotRequest) < _snapshotMinInterval) return;
+            _lastSnapshotRequest = DateTime.UtcNow;
+            await SendPacket(new
+            {
+                type = "GET_STATE",
+                airport = _airport,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            });
+            logger.Log("Sent GET_STATE request");
         }
 
         // Update stopbar state and send to server
@@ -341,6 +371,28 @@ namespace BARS.Util
             }
         }
 
+        private string BuildFriendlyConnectError(int? httpStatus)
+        {
+            if (!httpStatus.HasValue)
+            {
+                return "Unable to connect to the server.";
+            }
+            switch (httpStatus.Value)
+            {
+                case 400:
+                    return $"Invalid ICAO code '{_airport}'.";
+
+                case 401:
+                    return "API Key is invalid.";
+
+                case 403:
+                    return "Not connected to VATSIM.";
+
+                default:
+                    return $"Connection failed (HTTP {httpStatus}).";
+            }
+        }
+
         private bool ConvertStopbarStateToNetwork(Stopbar stopbar) => stopbar.State;
 
         private void ProcessInitialState(dynamic initialState)
@@ -402,18 +454,6 @@ namespace BARS.Util
                 OnError?.Invoke(this, $"Initial state processing error: {ex.Message}");
                 logger.Error($"Initial state processing error: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Called by ControllerHandler when a stopbar gets registered. If we deferred seeding because
-        /// the profile wasn't loaded at connection time, seed each newly registered stopbar now.
-        /// </summary>
-        /// <param name="stopbar">The newly registered stopbar.</param>
-        public void NotifyStopbarRegistered(Stopbar stopbar)
-        {
-            if (!_deferredSeedMode) return;
-            // Seed this stopbar (and its lead-on) with lead-on forced FALSE
-            _ = UpdateStopbar(stopbar, true);
         }
 
         // Process received WebSocket messages
@@ -564,113 +604,6 @@ namespace BARS.Util
             }
         }
 
-        // Process state updates from other controllers
-        private async void ProcessStateUpdate(dynamic stateUpdate)
-        {
-            try
-            {
-                string objectId = stateUpdate.data.objectId;
-                bool state = stateUpdate.data.state;
-                string controllerId = stateUpdate.data.controllerId;
-                if (controllerId == _controllerId) return; // ignore own
-
-                await Task.Delay(SERVER_UPDATE_DELAY);
-
-                lock (_updateLock) _localStopbarStates[objectId] = state;
-
-                var all = ControllerHandler.GetStopbarsForAirport(_airport);
-                var primary = all.FirstOrDefault(sb => sb.BARSId == objectId);
-                if (primary != null)
-                {
-                    // Check for recent optimistic local update
-                    bool suppress = false;
-                    bool needsRetry = false;
-                    lock (_updateLock)
-                    {
-                        if (_pendingLocalUpdates.TryGetValue(objectId, out var pending))
-                        {
-                            if ((DateTime.UtcNow - pending.SentAt) < _pendingGrace)
-                            {
-                                if (pending.State != state)
-                                {
-                                    // Conflict within grace window – schedule a single retry by re-sending our state
-                                    if (pending.RetryCount == 0)
-                                    {
-                                        pending.RetryCount++;
-                                        needsRetry = true;
-                                    }
-                                    suppress = true; // don't override our local yet
-                                }
-                                else
-                                {
-                                    // Server echoed desired state – clear pending
-                                    _pendingLocalUpdates.Remove(objectId);
-                                }
-                            }
-                            else
-                            {
-                                // Grace expired; accept server as authoritative
-                                _pendingLocalUpdates.Remove(objectId);
-                            }
-                        }
-                    }
-                    if (needsRetry)
-                    {
-                        _ = UpdateStopbar(primary); // resend
-                    }
-                    if (suppress) return; // ignore this revert attempt during grace
-
-                    if (primary.State == state)
-                    {
-                        // No change
-                        return;
-                    }
-                    _processingNetworkUpdate = true;
-                    try
-                    {
-                        ControllerHandler.SetStopbarState(_airport, objectId, state, WindowType.Legacy, primary.AutoRaise);
-                    }
-                    finally
-                    {
-                        _processingNetworkUpdate = false;
-                    }
-                    logger.Log($"Received state update for stopbar {objectId} from controller {controllerId}");
-                }
-                else if (all.Any(sb => sb.LeadOnId == objectId))
-                {
-                    // Lead-on update: ignore (inverse derived from primary)
-                    logger.Log($"Received lead-on update {objectId} (state={state}) from controller {controllerId} – ignored.");
-                }
-                else
-                {
-                    logger.Log($"Received update for unknown object {objectId} (state={state}) from controller {controllerId} – no action.");
-                }
-
-                // After any external update, request a snapshot (debounced) to repair potential rapid-tap divergence.
-                _ = RequestStateSnapshot();
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke(this, $"State update processing error: {ex.Message}");
-                logger.Error($"State update processing error: {ex.Message}");
-            }
-        }
-
-        // Public method to request a snapshot (debounced)
-        public async Task RequestStateSnapshot(bool force = false)
-        {
-            if (!IsConnected()) return;
-            if (!force && (DateTime.UtcNow - _lastSnapshotRequest) < _snapshotMinInterval) return;
-            _lastSnapshotRequest = DateTime.UtcNow;
-            await SendPacket(new
-            {
-                type = "GET_STATE",
-                airport = _airport,
-                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            });
-            logger.Log("Sent GET_STATE request");
-        }
-
         private void ProcessStateSnapshot(dynamic snapshot)
         {
             try
@@ -763,6 +696,98 @@ namespace BARS.Util
             {
                 OnError?.Invoke(this, $"State snapshot processing error: {ex.Message}");
                 logger.Error($"State snapshot processing error: {ex.Message}");
+            }
+        }
+
+        // Process state updates from other controllers
+        private async void ProcessStateUpdate(dynamic stateUpdate)
+        {
+            try
+            {
+                string objectId = stateUpdate.data.objectId;
+                bool state = stateUpdate.data.state;
+                string controllerId = stateUpdate.data.controllerId;
+                if (controllerId == _controllerId) return; // ignore own
+
+                await Task.Delay(SERVER_UPDATE_DELAY);
+
+                lock (_updateLock) _localStopbarStates[objectId] = state;
+
+                var all = ControllerHandler.GetStopbarsForAirport(_airport);
+                var primary = all.FirstOrDefault(sb => sb.BARSId == objectId);
+                if (primary != null)
+                {
+                    // Check for recent optimistic local update
+                    bool suppress = false;
+                    bool needsRetry = false;
+                    lock (_updateLock)
+                    {
+                        if (_pendingLocalUpdates.TryGetValue(objectId, out var pending))
+                        {
+                            if ((DateTime.UtcNow - pending.SentAt) < _pendingGrace)
+                            {
+                                if (pending.State != state)
+                                {
+                                    // Conflict within grace window – schedule a single retry by re-sending our state
+                                    if (pending.RetryCount == 0)
+                                    {
+                                        pending.RetryCount++;
+                                        needsRetry = true;
+                                    }
+                                    suppress = true; // don't override our local yet
+                                }
+                                else
+                                {
+                                    // Server echoed desired state – clear pending
+                                    _pendingLocalUpdates.Remove(objectId);
+                                }
+                            }
+                            else
+                            {
+                                // Grace expired; accept server as authoritative
+                                _pendingLocalUpdates.Remove(objectId);
+                            }
+                        }
+                    }
+                    if (needsRetry)
+                    {
+                        _ = UpdateStopbar(primary); // resend
+                    }
+                    if (suppress) return; // ignore this revert attempt during grace
+
+                    if (primary.State == state)
+                    {
+                        // No change
+                        return;
+                    }
+                    _processingNetworkUpdate = true;
+                    try
+                    {
+                        ControllerHandler.SetStopbarState(_airport, objectId, state, WindowType.Legacy, primary.AutoRaise);
+                    }
+                    finally
+                    {
+                        _processingNetworkUpdate = false;
+                    }
+                    logger.Log($"Received state update for stopbar {objectId} from controller {controllerId}");
+                }
+                else if (all.Any(sb => sb.LeadOnId == objectId))
+                {
+                    // Lead-on update: ignore (inverse derived from primary)
+                    logger.Log($"Received lead-on update {objectId} (state={state}) from controller {controllerId} – ignored.");
+                }
+                else
+                {
+                    logger.Log($"Received update for unknown object {objectId} (state={state}) from controller {controllerId} – no action.");
+                }
+
+                // After any external update, request a snapshot (debounced) to repair potential rapid-tap divergence.
+                _ = RequestStateSnapshot();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(this, $"State update processing error: {ex.Message}");
+                logger.Error($"State update processing error: {ex.Message}");
             }
         }
 
@@ -906,23 +931,14 @@ namespace BARS.Util
             return TryParseHttpStatusFromException(ex.InnerException);
         }
 
-        private string BuildFriendlyConnectError(int? httpStatus)
+        // true when initial state empty but profile not yet loaded
+        // delay before post-send verification snapshot
+        private class PendingUpdate
         {
-            if (!httpStatus.HasValue)
-            {
-                return "Unable to connect to the server.";
-            }
-            switch (httpStatus.Value)
-            {
-                case 400:
-                    return $"Invalid ICAO code '{_airport}'.";
-                case 401:
-                    return "API Key is invalid.";
-                case 403:
-                    return "Not connected to VATSIM.";
-                default:
-                    return $"Connection failed (HTTP {httpStatus}).";
-            }
+            public int RetryCount { get; set; }
+            public DateTime SentAt { get; set; }
+            public bool State { get; set; }
+            public bool VerificationScheduled { get; set; }
         }
     }
 }

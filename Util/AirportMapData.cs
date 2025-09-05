@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Xml;
+using BARS.Util;
+using System.Globalization;
 
 namespace BARS.Util
 {
@@ -32,21 +34,37 @@ namespace BARS.Util
 
         public static AirportMapData LoadFromXml(string airportIcao)
         {
-            string xmlPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "BARS", "vatSys", $"{airportIcao}.xml");
-
-            if (!File.Exists(xmlPath))
-            {
-                throw new FileNotFoundException($"Airport map file not found: {xmlPath}");
-            }
-
             var mapData = new AirportMapData(airportIcao);
 
             try
             {
                 XmlDocument doc = new XmlDocument();
-                doc.Load(xmlPath);
+                // Prefer CDN
+                string cdnUrl = CdnProfiles.GetAirportXmlUrl(airportIcao);
+                if (!string.IsNullOrEmpty(cdnUrl))
+                {
+                    string xml = CdnProfiles.DownloadXml(cdnUrl);
+                    if (!string.IsNullOrWhiteSpace(xml))
+                    {
+                        doc.LoadXml(xml);
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException($"Failed to download airport XML from {cdnUrl}");
+                    }
+                }
+                else
+                {
+                    // Fallback to local file if CDN index has no entry
+                    string xmlPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "BARS", "vatSys", $"{airportIcao}.xml");
+                    if (!File.Exists(xmlPath))
+                    {
+                        throw new FileNotFoundException($"Airport map file not found: {xmlPath}");
+                    }
+                    doc.Load(xmlPath);
+                }
 
                 LoadRotationFromPositions(mapData);
 
@@ -68,57 +86,24 @@ namespace BARS.Util
             }
         }
 
-        public PointF GeoToScreen(GeoPoint geoPoint, RectangleF screenBounds)
+        // Robust coordinate parser for XML attributes.
+        // - Uses invariant culture to avoid locale issues.
+        // - If a value looks like micro-degrees (e.g., 1445036), convert to degrees by dividing by 10000.
+        private static double ParseCoord(string s)
         {
-            if (CenterPoint == null)
-                return new PointF(0, 0);
-
-            // Use a local tangent-plane projection so X and Y are in meters (prevents skew/tilt at higher latitudes)
-            GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon);
-
-            if (MapBounds <= 0)
+            if (string.IsNullOrWhiteSpace(s)) return 0.0;
+            double v;
+            if (!double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v))
             {
-                return new PointF(0, 0);
+                // Fallback to current culture if invariant fails
+                double.TryParse(s, out v);
             }
-
-            double scale = screenBounds.Width / MapBounds; // square viewport, use uniform scale
-            if (double.IsInfinity(scale) || double.IsNaN(scale))
+            if (Math.Abs(v) > 180.0)
             {
-                return new PointF(0, 0);
+                // Heuristic: values like 1445036 or -374024 are micro-degrees * 10000
+                v = v / 10000.0;
             }
-
-            // Local ENU meters (Y positive to North)
-            double dx = (geoPoint.Longitude - CenterPoint.Longitude) * mPerDegLon;
-            double dy = (geoPoint.Latitude - CenterPoint.Latitude) * mPerDegLat;
-
-            // Apply map rotation (in math coords, CCW positive). Screen Y is inverted later.
-            if (Math.Abs(Rotation) > 0.001)
-            {
-                // Rotation is stored as degrees clockwise from North; math rotation is CCW, so negate
-                double rotationRadians = -Rotation * Math.PI / 180.0;
-                double cosRot = Math.Cos(rotationRadians);
-                double sinRot = Math.Sin(rotationRadians);
-
-                double rx = dx * cosRot - dy * sinRot;
-                double ry = dx * sinRot + dy * cosRot;
-                dx = rx; dy = ry;
-            }
-
-            // Convert to screen. Invert Y because screen coordinates grow downward.
-            double rawX = dx * scale + screenBounds.X + screenBounds.Width / 2;
-            double rawY = (-dy) * scale + screenBounds.Y + screenBounds.Height / 2;
-
-            if (Math.Abs(rawX) > float.MaxValue || Math.Abs(rawY) > float.MaxValue ||
-                double.IsNaN(rawX) || double.IsNaN(rawY) ||
-                double.IsInfinity(rawX) || double.IsInfinity(rawY))
-            {
-                return new PointF(0, 0);
-            }
-
-            float x = (float)rawX;
-            float y = (float)rawY;
-
-            return new PointF(x, y);
+            return v;
         }
 
         public PointF GeoToScreen(GeoPoint geoPoint, RectangleF screenBounds, float zoomLevel, PointF panOffset)
@@ -166,6 +151,12 @@ namespace BARS.Util
             float y = (float)rawY;
 
             return new PointF(x, y);
+        }
+
+        // Public wrapper to recompute bounds after changing rotation externally
+        public void RecalculateBounds()
+        {
+            CalculateMapBounds(this);
         }
 
         public void UpdateLeadOnLightColor(string leadOnId, bool stopbarActive)
@@ -271,21 +262,6 @@ namespace BARS.Util
             mapData.MapBounds = Math.Max(rangeX, rangeY);
         }
 
-        // Public wrapper to recompute bounds after changing rotation externally
-        public void RecalculateBounds()
-        {
-            CalculateMapBounds(this);
-        }
-
-        // Provide meters-per-degree at the current map center latitude
-        private void GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon)
-        {
-            double lat0 = (CenterPoint?.Latitude ?? 0.0) * Math.PI / 180.0;
-            mPerDegLat = 111320.0;               // Approx meters per degree latitude
-            mPerDegLon = Math.Cos(lat0) * 111320.0; // Scaled meters per degree longitude
-            if (mPerDegLon < 1e-6) mPerDegLon = 1e-6; // guard against poles
-        }
-
         private static void LoadLeadOnLights(XmlDocument doc, AirportMapData mapData)
         {
             XmlNodeList leadOnNodes = doc.SelectNodes("//LeadOn"); foreach (XmlNode leadOnNode in leadOnNodes)
@@ -301,8 +277,8 @@ namespace BARS.Util
 
                     foreach (XmlNode pointNode in points)
                     {
-                        double lon = double.Parse(pointNode.Attributes["lon"].Value);
-                        double lat = double.Parse(pointNode.Attributes["lat"].Value);
+                        double lon = ParseCoord(pointNode.Attributes["lon"].Value);
+                        double lat = ParseCoord(pointNode.Attributes["lat"].Value);
                         leadOn.Line.Points.Add(new GeoPoint(lon, lat));
                     }
                 }
@@ -373,9 +349,9 @@ namespace BARS.Util
                     {
                         string barsId = barsIdNode.InnerText;
                         string displayName = displayNameNode.InnerText;
-                        double lon = double.Parse(positionNode.Attributes["lon"].Value);
-                        double lat = double.Parse(positionNode.Attributes["lat"].Value);
-                        double heading = double.Parse(headingNode.InnerText);
+                        double lon = ParseCoord(positionNode.Attributes["lon"].Value);
+                        double lat = ParseCoord(positionNode.Attributes["lat"].Value);
+                        double heading = double.Parse(headingNode.InnerText, CultureInfo.InvariantCulture);
 
                         var stopbar = new MapStopbar(barsId, displayName, new GeoPoint(lon, lat), heading);
 
@@ -411,8 +387,8 @@ namespace BARS.Util
                 XmlNodeList points = lineNode.SelectNodes("Point");
                 foreach (XmlNode pointNode in points)
                 {
-                    double lon = double.Parse(pointNode.Attributes["lon"].Value);
-                    double lat = double.Parse(pointNode.Attributes["lat"].Value);
+                    double lon = ParseCoord(pointNode.Attributes["lon"].Value);
+                    double lat = ParseCoord(pointNode.Attributes["lat"].Value);
                     line.Points.Add(new GeoPoint(lon, lat));
                 }
 
@@ -431,13 +407,22 @@ namespace BARS.Util
             {
                 if (windsockNode.Attributes["lon"] != null && windsockNode.Attributes["lat"] != null)
                 {
-                    double lon = double.Parse(windsockNode.Attributes["lon"].Value);
-                    double lat = double.Parse(windsockNode.Attributes["lat"].Value);
+                    double lon = ParseCoord(windsockNode.Attributes["lon"].Value);
+                    double lat = ParseCoord(windsockNode.Attributes["lat"].Value);
 
                     var windsock = new Windsock(new GeoPoint(lon, lat));
                     mapData.Windsocks.Add(windsock);
                 }
             }
+        }
+
+        // Provide meters-per-degree at the current map center latitude
+        private void GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon)
+        {
+            double lat0 = (CenterPoint?.Latitude ?? 0.0) * Math.PI / 180.0;
+            mPerDegLat = 111320.0;               // Approx meters per degree latitude
+            mPerDegLon = Math.Cos(lat0) * 111320.0; // Scaled meters per degree longitude
+            if (mPerDegLon < 1e-6) mPerDegLon = 1e-6; // guard against poles
         }
     }
 
