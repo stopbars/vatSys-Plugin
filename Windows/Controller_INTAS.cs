@@ -35,7 +35,8 @@ namespace BARS.Windows
             InitializeComponent();
             this.Airport = Airport;
             this.ActiveProfile = Profile;
-            string displayTitle = (Airport == Profile) ? $"BARS - {Airport} - INTAS" : $"BARS - {Airport} - {Profile} - INTAS";
+            string displayProfile = FormatProfileDisplay(Profile);
+            string displayTitle = (Airport == Profile) ? $"BARS - {Airport} - INTAS" : $"BARS - {Airport} - {displayProfile} - INTAS";
             this.Text = displayTitle;
 
             this.FormClosing += Controller_FormClosing;
@@ -45,6 +46,23 @@ namespace BARS.Windows
 
             ControllerHandler.StopbarStateChanged += StopbarStateChanged;
             MET.Instance.ProductsChanged += METARChanged;
+        }
+
+        private static string FormatProfileDisplay(string profile)
+        {
+            if (string.IsNullOrWhiteSpace(profile)) return profile;
+            var m = System.Text.RegularExpressions.Regex.Match(profile, @"^\s*(?<aNum>\d{1,2})(?<aSuf>[LRC]*)\s*/\s*(?<bNum>\d{1,2})(?<bSuf>[LRC]*)\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return profile;
+            int aNum = int.Parse(m.Groups["aNum"].Value);
+            string aSuf = m.Groups["aSuf"].Value.ToUpperInvariant();
+            int bNum = int.Parse(m.Groups["bNum"].Value);
+            string bSuf = m.Groups["bSuf"].Value.ToUpperInvariant();
+            int leftNum = aNum, rightNum = bNum; string leftSuf = aSuf, rightSuf = bSuf;
+            if (bNum < aNum)
+            {
+                leftNum = bNum; rightNum = aNum; leftSuf = bSuf; rightSuf = aSuf;
+            }
+            return $"{leftNum}{leftSuf}/{rightNum}{rightSuf}";
         }
 
         public string ActiveProfile { get; private set; }

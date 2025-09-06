@@ -18,6 +18,13 @@ namespace BARS.Windows
             InitializeComponent();
             this.MiddleClickClose = false;
 
+            // Prevent resizing the config window
+            this.Resizeable = false;
+            this.MaximizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.MinimumSize = this.Size;
+            this.MaximumSize = this.Size;
+
             StyleComponent();
             SyncAirportList();
 

@@ -37,11 +37,30 @@ namespace BARS.Windows
             InitializeComponent();
             this.Airport = Airport;
             this.ActiveProfile = Profile;
-            this.Text = $"BARS - {Airport} - {Profile}";
+            string displayProfile = FormatProfileDisplay(Profile);
+            this.Text = $"BARS - {Airport} - {displayProfile}";
             this.MiddleClickClose = false;
             _ = InitializeStyle();
             _ = SetupResizeHandling();
             _ = LoadProfile();
+        }
+
+        private static string FormatProfileDisplay(string profile)
+        {
+            if (string.IsNullOrWhiteSpace(profile)) return profile;
+            // Normalize forms like "34R/16L" to "16L/34R"
+            var m = System.Text.RegularExpressions.Regex.Match(profile, @"^\s*(?<aNum>\d{1,2})(?<aSuf>[LRC]*)\s*/\s*(?<bNum>\d{1,2})(?<bSuf>[LRC]*)\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success) return profile;
+            int aNum = int.Parse(m.Groups["aNum"].Value);
+            string aSuf = m.Groups["aSuf"].Value.ToUpperInvariant();
+            int bNum = int.Parse(m.Groups["bNum"].Value);
+            string bSuf = m.Groups["bSuf"].Value.ToUpperInvariant();
+            int leftNum = aNum, rightNum = bNum; string leftSuf = aSuf, rightSuf = bSuf;
+            if (bNum < aNum)
+            {
+                leftNum = bNum; rightNum = aNum; leftSuf = bSuf; rightSuf = aSuf;
+            }
+            return $"{leftNum}{leftSuf}/{rightNum}{rightSuf}";
         }
 
         async Task SetupResizeHandling()
