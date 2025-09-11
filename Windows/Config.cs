@@ -192,6 +192,31 @@ namespace BARS.Windows
             if (e.KeyChar == (char)Keys.Enter)
             {
                 btn_add_Click(sender, e);
+                return;
+            }
+
+            // Disallow spaces and any non-letter characters. Allow control keys (Backspace, etc.).
+            if (!char.IsControl(e.KeyChar))
+            {
+                // Only allow A-Z letters
+                if (!char.IsLetter(e.KeyChar))
+                {
+                    e.Handled = true;
+                    return;
+                }
+
+                var tb = sender as TextBox;
+                if (tb != null)
+                {
+                    bool replacingSelection = tb.SelectionLength > 0;
+                    if (!replacingSelection && tb.TextLength >= 4)
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                e.KeyChar = char.ToUpperInvariant(e.KeyChar);
             }
         }
     }
