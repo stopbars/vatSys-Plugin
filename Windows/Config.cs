@@ -42,7 +42,7 @@ namespace BARS.Windows
             {
                 btn_add.Enabled = false;
                 btn_add.Size = new Size(82, 24);
-                btn_add.Text = "ADDING...";
+                btn_add.Text = "LOADING...";
                 await BARS.AddAirport(icao);
                 txt_icao.Clear();
                 txt_icao.Focus();
