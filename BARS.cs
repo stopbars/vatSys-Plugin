@@ -55,7 +55,6 @@ namespace BARS
         }
 
         public static event EventHandler<ControllerWindowEventArgs> ControllerWindowClosed;
-
         public static Dictionary<string, Dictionary<string, string>> AirportProfiles { get; private set; } =
         new Dictionary<string, Dictionary<string, string>>();
 
@@ -98,6 +97,17 @@ namespace BARS
             {
                 config.SyncAirportList();
             }
+
+            List<string> infoList = new List<string>(Network.ControllerInfo ?? Array.Empty<string>());
+            bool hasBars = infoList.Any(s => s != null &&
+                s.IndexOf("BARS", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (!hasBars)
+            {
+                infoList.Add("BARS in use! - stopbars.com");
+            }
+
+            Network.ControllerInfo = infoList.ToArray();
 
             bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
 
