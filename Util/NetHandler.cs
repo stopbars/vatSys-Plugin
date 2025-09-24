@@ -70,6 +70,8 @@ namespace BARS.Util
         public event StateUpdateEventHandler OnStateUpdate;
 
         public string ConnectionId { get; private set; }
+        public string Airport => _airport;
+        public string ControllerId => _controllerId;
 
         /// <summary>
         /// Apply a new API key to this connection. If currently connected, will gracefully
