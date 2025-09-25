@@ -104,7 +104,7 @@ namespace BARS
 
             if (!hasBars)
             {
-                infoList.Add("BARS in use! - stopbars.com");
+                infoList.Add("BARS in use - stopbars.com");
             }
 
             Network.ControllerInfo = infoList.ToArray();
