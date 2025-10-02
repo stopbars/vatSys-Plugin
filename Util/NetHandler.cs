@@ -182,15 +182,41 @@ namespace BARS.Util
         // Disconnect from the WebSocket server
         public async Task Disconnect()
         {
-            if (_webSocket == null)
+            var socket = _webSocket;
+            if (socket == null)
+            {
+                if (_isConnected)
+                {
+                    _isConnected = false;
+                    OnConnectionChanged?.Invoke(this, false);
+                }
                 return;
+            }
+
+            var cts = _cancellationTokenSource;
+            var heartbeatTimer = _heartbeatTimer;
+
+            if (ReferenceEquals(_webSocket, socket))
+            {
+                _webSocket = null;
+            }
 
             try
             {
                 // Stop the heartbeat timer first
-                StopHeartbeat();
+                StopHeartbeat(heartbeatTimer);
 
-                if (_webSocket.State == WebSocketState.Open)
+                bool socketOpen = false;
+                try
+                {
+                    socketOpen = socket.State == WebSocketState.Open;
+                }
+                catch (ObjectDisposedException)
+                {
+                    socketOpen = false;
+                }
+
+                if (socketOpen)
                 {
                     // Only try to send close message if socket is still open
                     try
@@ -198,50 +224,80 @@ namespace BARS.Util
                         await SendPacket(new
                         {
                             type = "CLOSE"
-                        });
+                        }, socket, CancellationToken.None);
                     }
                     catch (Exception)
                     {
                         // Suppress send errors during disconnect
                     }
 
-                    // Attempt graceful closure
-                    await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure,
-                        "Client disconnecting",
-                        CancellationToken.None);
+                    try
+                    {
+                        // Attempt graceful closure
+                        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure,
+                            "Client disconnecting",
+                            CancellationToken.None);
+                    }
+                    catch (Exception)
+                    {
+                        // Suppress close errors during disconnect
+                    }
                 }
 
                 // Cancel any ongoing operations
-                _cancellationTokenSource.Cancel();
-
-                // Clean up WebSocket
                 try
                 {
-                    _webSocket.Dispose();
+                    cts?.Cancel();
                 }
-                catch (Exception)
+                catch (ObjectDisposedException)
                 {
-                    // Suppress dispose errors
-                }
-                finally
-                {
-                    _webSocket = null;
-                    _isConnected = false;
-                    OnConnectionChanged?.Invoke(this, false);
+                    // Suppress cancellation errors during cleanup
                 }
 
                 logger.Log($"Disconnected from BARS server for airport {_airport}");
             }
             catch (Exception ex)
             {
-                string stateMsg = _webSocket != null ? _webSocket.State.ToString() : "null";
+                string stateMsg;
+                try
+                {
+                    stateMsg = socket.State.ToString();
+                }
+                catch (ObjectDisposedException)
+                {
+                    stateMsg = "disposed";
+                }
+
                 OnError?.Invoke(this, $"Disconnect error: {ex.Message} (Socket State: {stateMsg})");
                 logger.Error($"WebSocket disconnect error: {ex.Message} (Socket State: {stateMsg})");
+            }
+            finally
+            {
+                if (ReferenceEquals(_cancellationTokenSource, cts))
+                {
+                    _cancellationTokenSource = null;
+                }
 
-                // Ensure cleanup even on error
-                _webSocket = null;
+                try
+                {
+                    cts?.Dispose();
+                }
+                catch (Exception)
+                {
+                    // Suppress dispose errors during cleanup
+                }
+
                 _isConnected = false;
                 OnConnectionChanged?.Invoke(this, false);
+
+                try
+                {
+                    socket.Dispose();
+                }
+                catch (Exception)
+                {
+                    // Suppress dispose errors during cleanup
+                }
             }
         }
 
@@ -396,6 +452,21 @@ namespace BARS.Util
         }
 
         private bool ConvertStopbarStateToNetwork(Stopbar stopbar) => stopbar.State;
+        private void SetStopbarStateFromNetwork(string airport, string barsId, bool state, bool autoRaise)
+        {
+            var stopbar = ControllerHandler.GetStopbar(airport, barsId);
+            if (stopbar != null && stopbar.State != state)
+            {
+                stopbar.State = state;
+                stopbar.AutoRaise = autoRaise;
+
+                logger.Log($"Network update: Set stopbar {barsId} at {airport} to {(state ? "ON" : "OFF")}, broadcasting to all windows");
+
+                // Broadcast to ALL window types (Legacy and INTAS)
+                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.Legacy);
+                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.INTAS);
+            }
+        }
 
         private void ProcessInitialState(dynamic initialState)
         {
@@ -560,9 +631,17 @@ namespace BARS.Util
                                         var sb = ControllerHandler.GetStopbar(_airport, objectId);
                                         if (sb != null && !sb.State)
                                         {
-                                            // Do not set _processingNetworkUpdate here; we want this to propagate to server
-                                            ControllerHandler.SetStopbarState(_airport, objectId, true, WindowType.Legacy, sb.AutoRaise);
+                                            sb.State = true;
+                                            ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.Legacy);
+                                            ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.INTAS);
                                             logger.Log($"Auto-raised stopbar {objectId} after STOPBAR_CROSSING delay.");
+
+                                            // Send to network server
+                                            var netHandler = NetManager.Instance.GetConnection(_airport);
+                                            if (netHandler != null && netHandler.IsConnected())
+                                            {
+                                                _ = netHandler.UpdateStopbar(sb);
+                                            }
                                         }
                                     }
                                     catch (TaskCanceledException) { }
@@ -661,7 +740,7 @@ namespace BARS.Util
                             _processingNetworkUpdate = true;
                             try
                             {
-                                ControllerHandler.SetStopbarState(_airport, sb.BARSId, srvState, WindowType.Legacy, sb.AutoRaise);
+                                SetStopbarStateFromNetwork(_airport, sb.BARSId, srvState, sb.AutoRaise);
                             }
                             finally { _processingNetworkUpdate = false; }
                             logger.Log($"Reconciled stopbar {sb.BARSId} to server state {srvState}");
@@ -765,7 +844,7 @@ namespace BARS.Util
                     _processingNetworkUpdate = true;
                     try
                     {
-                        ControllerHandler.SetStopbarState(_airport, objectId, state, WindowType.Legacy, primary.AutoRaise);
+                        SetStopbarStateFromNetwork(_airport, objectId, state, primary.AutoRaise);
                     }
                     finally
                     {
@@ -801,16 +880,32 @@ namespace BARS.Util
             {
                 while (_webSocket != null && _webSocket.State == WebSocketState.Open && !_cancellationTokenSource.Token.IsCancellationRequested)
                 {
-                    var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
-                    if (result.MessageType == WebSocketMessageType.Close)
+                    StringBuilder messageBuilder = null;
+                    WebSocketReceiveResult result;
+                    do
                     {
-                        await Disconnect();
-                        break;
-                    }
-                    if (result.MessageType == WebSocketMessageType.Text)
+                        result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
+
+                        if (result.MessageType == WebSocketMessageType.Close)
+                        {
+                            await Disconnect();
+                            return;
+                        }
+
+                        if (result.MessageType == WebSocketMessageType.Text)
+                        {
+                            if (messageBuilder == null)
+                            {
+                                messageBuilder = new StringBuilder();
+                            }
+                            messageBuilder.Append(Encoding.UTF8.GetString(buffer, 0, result.Count));
+                        }
+                        // Ignore non-text messages once drained to EndOfMessage
+                    } while (!result.EndOfMessage);
+
+                    if (result.MessageType == WebSocketMessageType.Text && messageBuilder != null)
                     {
-                        string json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                        ProcessMessageAsync(json);
+                        ProcessMessageAsync(messageBuilder.ToString());
                     }
                 }
             }
@@ -869,17 +964,42 @@ namespace BARS.Util
         }
 
         // Send a packet to the server
-        private async Task SendPacket(object data)
+        private async Task SendPacket(object data, ClientWebSocket socketOverride = null, CancellationToken? cancellationTokenOverride = null)
         {
-            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+            var socket = socketOverride ?? _webSocket;
+            try
+            {
+                if (socket == null || socket.State != WebSocketState.Open)
+                {
+                    return;
+                }
+            }
+            catch (ObjectDisposedException)
+            {
                 return;
+            }
 
             await _sendSemaphore.WaitAsync();
             try
             {
                 string json = JsonConvert.SerializeObject(data);
                 byte[] bytes = Encoding.UTF8.GetBytes(json);
-                await _webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, _cancellationTokenSource.Token);
+
+                CancellationToken token;
+                if (cancellationTokenOverride.HasValue)
+                {
+                    token = cancellationTokenOverride.Value;
+                }
+                else if (_cancellationTokenSource != null)
+                {
+                    token = _cancellationTokenSource.Token;
+                }
+                else
+                {
+                    token = CancellationToken.None;
+                }
+
+                await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, token);
             }
             catch (Exception ex)
             {
@@ -904,8 +1024,28 @@ namespace BARS.Util
         }
 
         // Stop the heartbeat timer
-        private void StopHeartbeat()
+        private void StopHeartbeat(System.Timers.Timer expectedTimer = null)
         {
+            if (expectedTimer != null)
+            {
+                try
+                {
+                    expectedTimer.Stop();
+                    expectedTimer.Dispose();
+                }
+                catch (Exception)
+                {
+                    // Suppress timer disposal errors during cleanup
+                }
+
+                if (ReferenceEquals(_heartbeatTimer, expectedTimer))
+                {
+                    _heartbeatTimer = null;
+                }
+
+                return;
+            }
+
             if (_heartbeatTimer != null)
             {
                 _heartbeatTimer.Stop();

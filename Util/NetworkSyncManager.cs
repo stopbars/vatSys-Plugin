@@ -55,8 +55,9 @@ namespace BARS.Util
                             if (networkState != sb.State)
                             {
                                 _logger.Log($"Audit desync detected {sb.BARSId} airport {airport}: local={sb.State} server={networkState}. Repairing...");
-                                // Decide repair strategy: trust server (authoritative)
-                                ControllerHandler.SetStopbarState(airport, sb.BARSId, networkState, WindowType.Legacy, sb.AutoRaise);
+                                sb.State = networkState;
+                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.Legacy);
+                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.INTAS);
                             }
                         }
                         else

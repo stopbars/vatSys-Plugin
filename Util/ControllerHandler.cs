@@ -28,6 +28,10 @@ namespace BARS.Util
         public static event EventHandler<StopbarEventArgs> StopbarRegistered;
 
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
+        public static void NotifyStopbarStateChanged(Stopbar stopbar, WindowType windowType)
+        {
+            StopbarStateChanged?.Invoke(null, new StopbarEventArgs(stopbar, windowType));
+        }
 
         public static Stopbar GetStopbar(string airport, string barsId)
         {
