@@ -19,8 +19,6 @@ namespace BARS.Windows
 
         private const int PROFILE_ENTRY_SPACING = 5;
 
-        private bool isDisposing = false;
-
         private Dictionary<string, GenericButton> profileButtons = new Dictionary<string, GenericButton>();
 
         // Regex to detect runway pair names like "16/34", "16L/34R", with optional spaces

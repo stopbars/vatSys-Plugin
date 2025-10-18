@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0"
-  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -187,13 +186,10 @@
   <PropertyGroup>
     <PostBuildEvent>md "$(TargetDir)BARS"
 xcopy /y "$(TargetPath)" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)RossCarlson.Vatsim.Network.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Text.Json.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Memory.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Buffers.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Numerics.Vectors.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Runtime.CompilerServices.Unsafe.dll" "$(TargetDir)BARS\"
-xcopy /y "$(TargetDir)System.Text.Encodings.Web.dll" "$(TargetDir)BARS\"
+xcopy /y "$(TargetDir)Newtonsoft.Json.dll" "$(TargetDir)BARS\"
+
+rem Zip the BARS folder (uses PowerShell Compress-Archive). If PowerShell isn't available the build will continue.
+powershell -NoProfile -Command "try { $src = '$(TargetDir)BARS'; $zip = '$(TargetDir)BARS.zip'; if(Test-Path $zip){Remove-Item $zip -Force}; Compress-Archive -Path (Join-Path $src '*') -DestinationPath $zip } catch { exit 0 }"
     </PostBuildEvent>
   </PropertyGroup>
 </Project>
