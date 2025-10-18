@@ -463,8 +463,8 @@ namespace BARS.Util
                 logger.Log($"Network update: Set stopbar {barsId} at {airport} to {(state ? "ON" : "OFF")}, broadcasting to all windows");
 
                 // Broadcast to ALL window types (Legacy and INTAS)
-                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.Legacy);
-                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.INTAS);
+                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.Legacy, true);
+                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.INTAS, true);
             }
         }
 

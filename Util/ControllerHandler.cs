@@ -28,9 +28,9 @@ namespace BARS.Util
         public static event EventHandler<StopbarEventArgs> StopbarRegistered;
 
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
-        public static void NotifyStopbarStateChanged(Stopbar stopbar, WindowType windowType)
+        public static void NotifyStopbarStateChanged(Stopbar stopbar, WindowType windowType, bool fromNetwork = false)
         {
-            StopbarStateChanged?.Invoke(null, new StopbarEventArgs(stopbar, windowType));
+            StopbarStateChanged?.Invoke(null, new StopbarEventArgs(stopbar, windowType, fromNetwork));
         }
 
         public static Stopbar GetStopbar(string airport, string barsId)
@@ -247,13 +247,15 @@ namespace BARS.Util
 
     public class StopbarEventArgs : EventArgs
     {
-        public StopbarEventArgs(Stopbar stopbar, WindowType windowType)
+        public StopbarEventArgs(Stopbar stopbar, WindowType windowType, bool fromNetwork = false)
         {
             Stopbar = stopbar;
             WindowType = windowType;
+            FromNetwork = fromNetwork;
         }
 
         public Stopbar Stopbar { get; private set; }
         public WindowType WindowType { get; private set; }
+        public bool FromNetwork { get; private set; }
     }
 }

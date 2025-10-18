@@ -26,6 +26,7 @@ namespace BARS.Windows
         private const float MIN_LINE_WIDTH = 0.5f;
         private const float MIN_ZOOM = 0.1f;
         private const int STOPBAR_BASE_SIZE = 16;
+        private const float STOPBAR_MAX_SLIDE = 3f;
         private const float TaxiwayLineWidth = 1.0f;
         private static readonly HttpClient _httpClient = new HttpClient();
 
@@ -65,6 +66,8 @@ namespace BARS.Windows
         private Random _windRandom = new Random();
         private Dictionary<Windsock, WindState> _windsockStates = new Dictionary<Windsock, WindState>();
         private float _zoomLevel = 1.0f;
+        private readonly Dictionary<string, float> _stopbarSlideOffsetsWorld = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private bool _stopbarSlidesInitialized = false;
 
         public AirportMapControl()
         {
@@ -117,24 +120,26 @@ namespace BARS.Windows
                 return null;
 
             var bounds = CalculateSquareDrawingBounds();
+            var visuals = BuildStopbarVisuals(bounds);
+            if (visuals.Count == 0)
+                return null;
+
             MapStopbar closestStopbar = null;
             float closestDistance = float.MaxValue;
 
             float baseClickDistance = 50.0f;
             float scaledClickDistance = baseClickDistance * _zoomLevel;
+            PointF clickPointF = new PointF(clickPoint.X, clickPoint.Y);
 
-            foreach (var stopbar in _mapData.Stopbars)
+            foreach (var visual in visuals.Values)
             {
-                PointF screenPos = _mapData.GeoToScreen(stopbar.Position, bounds, _zoomLevel, _panOffset);
+                float detectionRadius = Math.Max(scaledClickDistance, visual.ImageSize);
+                float distance = Distance(clickPointF, visual.ScreenPosition);
 
-                float distanceX = clickPoint.X - screenPos.X;
-                float distanceY = clickPoint.Y - screenPos.Y;
-                float distance = (float)Math.Sqrt((distanceX * distanceX) + (distanceY * distanceY));
-
-                if (distance <= scaledClickDistance && distance < closestDistance)
+                if (distance <= detectionRadius && distance < closestDistance)
                 {
                     closestDistance = distance;
-                    closestStopbar = stopbar;
+                    closestStopbar = visual.Stopbar;
                 }
             }
 
@@ -151,6 +156,7 @@ namespace BARS.Windows
             try
             {
                 _mapData = AirportMapData.LoadFromXml(airportIcao);
+                ResetStopbarSlides();
 
                 _windsockStates.Clear();
                 if (_mapData?.Windsocks != null)
@@ -287,12 +293,32 @@ namespace BARS.Windows
                     var leadOn = _mapData.LeadOnLights.Find(l => l.Id == leadOnId);
                     if (leadOn != null)
                     {
-                        animState.IsAnimating = true;
-                        animState.StartTime = DateTime.Now;
-                        animState.TotalLength = CalculateLeadOnLength(leadOn);
-                        animState.ProgressLength = animState.TotalLength;
+                        float totalLength = CalculateLeadOnLength(leadOn);
+                        bool wasAnimating = animState.IsAnimating;
+
+                        animState.TotalLength = totalLength;
+                        float startLength = Math.Max(0f, Math.Min(totalLength, animState.ProgressLength));
+                        if (!wasAnimating)
+                        {
+                            startLength = totalLength;
+                        }
+
                         animState.IsReverse = true;
-                        _logger.Log($"Starting reverse animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m");
+
+                        if (Math.Abs(startLength) <= 0.01f)
+                        {
+                            animState.StartLength = 0f;
+                            animState.ProgressLength = 0f;
+                            animState.IsAnimating = false;
+                        }
+                        else
+                        {
+                            animState.IsAnimating = true;
+                            animState.StartTime = DateTime.Now;
+                            animState.StartLength = startLength;
+                            animState.ProgressLength = startLength;
+                            _logger.Log($"Starting reverse animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m)");
+                        }
                     }
                 }
                 else if (previousStopbarState && !stopbarActive)
@@ -300,12 +326,32 @@ namespace BARS.Windows
                     var leadOn = _mapData.LeadOnLights.Find(l => l.Id == leadOnId);
                     if (leadOn != null)
                     {
-                        animState.IsAnimating = true;
-                        animState.StartTime = DateTime.Now;
-                        animState.TotalLength = CalculateLeadOnLength(leadOn);
-                        animState.ProgressLength = 0;
+                        float totalLength = CalculateLeadOnLength(leadOn);
+                        bool wasAnimating = animState.IsAnimating;
+
+                        animState.TotalLength = totalLength;
+                        float startLength = Math.Max(0f, Math.Min(totalLength, animState.ProgressLength));
+                        if (!wasAnimating)
+                        {
+                            startLength = 0f;
+                        }
+
                         animState.IsReverse = false;
-                        _logger.Log($"Starting forward animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m");
+
+                        if (Math.Abs(startLength - totalLength) <= 0.01f)
+                        {
+                            animState.StartLength = totalLength;
+                            animState.ProgressLength = totalLength;
+                            animState.IsAnimating = false;
+                        }
+                        else
+                        {
+                            animState.IsAnimating = true;
+                            animState.StartTime = DateTime.Now;
+                            animState.StartLength = startLength;
+                            animState.ProgressLength = startLength;
+                            _logger.Log($"Starting forward animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m)");
+                        }
                     }
                 }
 
@@ -620,9 +666,12 @@ namespace BARS.Windows
             DrawLeadOnLights(e.Graphics, squareBounds);
 
             DrawWindsocks(e.Graphics, squareBounds);
-            DrawStopbars(e.Graphics, squareBounds);
 
-            DrawStopbarCountdownLabels(e.Graphics, squareBounds);
+            var stopbarVisuals = BuildStopbarVisuals(squareBounds);
+
+            DrawStopbars(e.Graphics, stopbarVisuals);
+
+            DrawStopbarCountdownLabels(e.Graphics, stopbarVisuals);
         }
 
         private static double AngleDifferenceDegrees(double a, double b)
@@ -762,22 +811,35 @@ namespace BARS.Windows
                         animationSpeed = Math.Max(BASE_SPEED_MPS, speedForCap);
                     }
 
+                    float startLength = Math.Max(0f, Math.Min(animState.TotalLength, animState.StartLength));
+                    float animationDelta = (float)(elapsedSec * animationSpeed);
+
                     if (animState.IsReverse)
                     {
-                        animState.ProgressLength = animState.TotalLength - (float)(elapsedSec * animationSpeed);
-                        if (animState.ProgressLength <= 0f)
+                        float newProgress = startLength - animationDelta;
+                        if (newProgress <= 0f)
                         {
                             animState.IsAnimating = false;
                             animState.ProgressLength = 0f;
+                            animState.StartLength = 0f;
+                        }
+                        else
+                        {
+                            animState.ProgressLength = Math.Max(0f, newProgress);
                         }
                     }
                     else
                     {
-                        animState.ProgressLength = (float)(elapsedSec * animationSpeed);
-                        if (animState.TotalLength > 0f && animState.ProgressLength >= animState.TotalLength)
+                        float newProgress = startLength + animationDelta;
+                        if (animState.TotalLength > 0f && newProgress >= animState.TotalLength)
                         {
                             animState.IsAnimating = false;
                             animState.ProgressLength = animState.TotalLength;
+                            animState.StartLength = animState.TotalLength;
+                        }
+                        else
+                        {
+                            animState.ProgressLength = Math.Min(animState.TotalLength, newProgress);
                         }
                     }
 
@@ -1253,24 +1315,19 @@ namespace BARS.Windows
             }
         }
 
-        private void DrawStopbarCountdownLabels(Graphics g, RectangleF bounds)
+        private void DrawStopbarCountdownLabels(Graphics g, Dictionary<string, StopbarVisual> visuals)
         {
-            if (_mapData?.Stopbars == null || _stopbarCountdowns.Count == 0)
+            if (_stopbarCountdowns.Count == 0 || visuals == null || visuals.Count == 0)
                 return;
 
-            foreach (var stopbar in _mapData.Stopbars)
+            foreach (var visual in visuals.Values)
             {
+                var stopbar = visual.Stopbar;
                 if (!_stopbarCountdowns.ContainsKey(stopbar.BarsId) || !_stopbarCountdowns[stopbar.BarsId].IsActive)
                     continue;
 
-                PointF screenPos = _mapData.GeoToScreen(stopbar.Position, bounds, _zoomLevel, _panOffset);
-
-                int imageSize = (int)(STOPBAR_BASE_SIZE * _scalingRatio * _zoomLevel);
-
-                if (imageSize <= 0)
-                {
-                    imageSize = 1;
-                }
+                PointF screenPos = visual.ScreenPosition;
+                int imageSize = Math.Max(1, (int)Math.Round(visual.ImageSize));
 
                 float margin = Math.Max(imageSize * 3, 200);
                 if (screenPos.X < -margin || screenPos.X > this.Width + margin ||
@@ -1281,6 +1338,187 @@ namespace BARS.Windows
 
                 DrawStopbarCountdownLabel(g, stopbar, screenPos, imageSize);
             }
+        }
+
+        private Dictionary<string, StopbarVisual> BuildStopbarVisuals(RectangleF bounds)
+        {
+            var layout = new Dictionary<string, StopbarVisual>(StringComparer.OrdinalIgnoreCase);
+            if (_mapData?.Stopbars == null || _mapData.Stopbars.Count == 0)
+            {
+                return layout;
+            }
+
+            EnsureStopbarSlides(bounds);
+
+            foreach (var stopbar in _mapData.Stopbars)
+            {
+                PointF basePosition = _mapData.GeoToScreen(stopbar.Position, bounds, _zoomLevel, _panOffset);
+                float rotation = GetStopbarRotation(stopbar);
+                PointF rightUnit = CalculateRightUnitVector(rotation);
+
+                float imageSize = STOPBAR_BASE_SIZE * _scalingRatio * _zoomLevel;
+                if (imageSize <= 0f || float.IsNaN(imageSize) || float.IsInfinity(imageSize))
+                {
+                    imageSize = 1f;
+                }
+
+                float slideWorld = 0f;
+                if (!_stopbarSlideOffsetsWorld.TryGetValue(stopbar.BarsId, out slideWorld))
+                {
+                    slideWorld = 0f;
+                }
+
+                double scale = GetCurrentScale(bounds);
+                float slidePixels = (float)(slideWorld * scale);
+                PointF screenPosition = basePosition;
+                if (Math.Abs(slidePixels) > 0.01f)
+                {
+                    screenPosition = new PointF(
+                        basePosition.X + rightUnit.X * slidePixels,
+                        basePosition.Y + rightUnit.Y * slidePixels);
+                }
+
+                layout[stopbar.BarsId] = new StopbarVisual
+                {
+                    Stopbar = stopbar,
+                    BasePosition = basePosition,
+                    ScreenPosition = screenPosition,
+                    Rotation = rotation,
+                    ImageSize = imageSize,
+                    RightUnit = rightUnit,
+                    SlideOffset = slidePixels
+                };
+            }
+
+            return layout;
+        }
+
+        private double GetCurrentScale(RectangleF bounds)
+        {
+            if (_mapData == null)
+                return 0.0;
+
+            double mapBounds = _mapData.MapBounds;
+            if (mapBounds <= 0.0)
+                return 0.0;
+
+            double effectiveWidth = Math.Max(1.0, bounds.Width);
+            double scale = (effectiveWidth / mapBounds) * _zoomLevel;
+            return scale;
+        }
+
+        private void EnsureStopbarSlides(RectangleF bounds)
+        {
+            if (_stopbarSlidesInitialized)
+                return;
+
+            InitializeStopbarSlides(bounds);
+            _stopbarSlidesInitialized = true;
+        }
+
+        private void InitializeStopbarSlides(RectangleF bounds)
+        {
+            _stopbarSlideOffsetsWorld.Clear();
+
+            if (_mapData?.Stopbars == null || _mapData.Stopbars.Count <= 1)
+                return;
+
+            double scale = GetCurrentScale(bounds);
+            if (scale <= 0.0)
+            {
+                scale = 1.0;
+            }
+
+            float worldMaxSlide = (float)(STOPBAR_MAX_SLIDE / scale);
+
+            var tempStopbars = new List<TempStopbar>();
+            float imageSize = STOPBAR_BASE_SIZE * _scalingRatio * _zoomLevel;
+            if (imageSize <= 0f || float.IsNaN(imageSize) || float.IsInfinity(imageSize))
+            {
+                imageSize = STOPBAR_BASE_SIZE;
+            }
+
+            foreach (var stopbar in _mapData.Stopbars)
+            {
+                PointF basePosition = _mapData.GeoToScreen(stopbar.Position, bounds, _zoomLevel, _panOffset);
+                float rotation = GetStopbarRotation(stopbar);
+                PointF rightUnit = CalculateRightUnitVector(rotation);
+
+                tempStopbars.Add(new TempStopbar
+                {
+                    Stopbar = stopbar,
+                    BasePosition = basePosition,
+                    RightUnit = rightUnit
+                });
+            }
+
+            for (int i = 0; i < tempStopbars.Count; i++)
+            {
+                for (int j = i + 1; j < tempStopbars.Count; j++)
+                {
+                    var a = tempStopbars[i];
+                    var b = tempStopbars[j];
+                    float distance = Distance(a.BasePosition, b.BasePosition);
+                    if (distance > imageSize || distance <= 0.01f)
+                    {
+                        continue;
+                    }
+
+                    PointF diff = new PointF(b.BasePosition.X - a.BasePosition.X, b.BasePosition.Y - a.BasePosition.Y);
+                    float projection = diff.X * a.RightUnit.X + diff.Y * a.RightUnit.Y;
+                    float axisDistance = Math.Abs(projection);
+                    float crossDistance = Math.Abs(diff.X * (-a.RightUnit.Y) + diff.Y * a.RightUnit.X);
+
+                    if (axisDistance <= 1.0f || crossDistance >= (imageSize * 0.6f))
+                    {
+                        continue;
+                    }
+
+                    float direction = projection >= 0 ? -1f : 1f;
+
+                    if (!_stopbarSlideOffsetsWorld.ContainsKey(a.Stopbar.BarsId))
+                    {
+                        _stopbarSlideOffsetsWorld[a.Stopbar.BarsId] = direction * worldMaxSlide;
+                    }
+
+                    if (!_stopbarSlideOffsetsWorld.ContainsKey(b.Stopbar.BarsId))
+                    {
+                        _stopbarSlideOffsetsWorld[b.Stopbar.BarsId] = -direction * worldMaxSlide;
+                    }
+                }
+            }
+        }
+
+        private void ResetStopbarSlides()
+        {
+            _stopbarSlideOffsetsWorld.Clear();
+            _stopbarSlidesInitialized = false;
+        }
+
+        private static PointF CalculateRightUnitVector(float rotationDegrees)
+        {
+            float radians = rotationDegrees * (float)(Math.PI / 180.0);
+            float cos = (float)Math.Cos(radians);
+            float sin = (float)Math.Sin(radians);
+            return NormalizeVector(new PointF(cos, sin));
+        }
+
+        private static PointF NormalizeVector(PointF vector)
+        {
+            float length = (float)Math.Sqrt((vector.X * vector.X) + (vector.Y * vector.Y));
+            if (length <= 1e-3f)
+            {
+                return new PointF(1f, 0f);
+            }
+
+            return new PointF(vector.X / length, vector.Y / length);
+        }
+
+        private static float Distance(PointF a, PointF b)
+        {
+            float dx = a.X - b.X;
+            float dy = a.Y - b.Y;
+            return (float)Math.Sqrt((dx * dx) + (dy * dy));
         }
 
         private void DrawStopbarFallback(Graphics g, MapStopbar stopbar, PointF screenPos, int imageSize)
@@ -1324,18 +1562,17 @@ namespace BARS.Windows
             DrawStopbarCountdownLabel(g, stopbar, screenPos, imageSize);
         }
 
-        private void DrawStopbars(Graphics g, RectangleF bounds)
+        private void DrawStopbars(Graphics g, Dictionary<string, StopbarVisual> visuals)
         {
-            if (_mapData?.Stopbars == null)
-                return; foreach (var stopbar in _mapData.Stopbars)
-            {
-                PointF screenPos = _mapData.GeoToScreen(stopbar.Position, bounds, _zoomLevel, _panOffset);
-                int imageSize = (int)(STOPBAR_BASE_SIZE * _scalingRatio * _zoomLevel);
+            if (_mapData?.Stopbars == null || visuals == null || visuals.Count == 0)
+                return;
 
-                if (imageSize <= 0)
-                {
-                    imageSize = 1;
-                }
+            foreach (var visual in visuals.Values)
+            {
+                var stopbar = visual.Stopbar;
+                PointF screenPos = visual.ScreenPosition;
+                int imageSize = Math.Max(1, (int)Math.Round(visual.ImageSize));
+
                 float extraLeftSpace = 0f;
                 if (_stopbarCountdowns.ContainsKey(stopbar.BarsId) && _stopbarCountdowns[stopbar.BarsId].IsActive)
                 {
@@ -1390,8 +1627,7 @@ namespace BARS.Windows
                 g.CompositingQuality = CompositingQuality.HighQuality;
                 g.CompositingMode = CompositingMode.SourceOver;
 
-                // Translate to stopbar position and rotate using unified helper (accounts for map rotation and sprite orientation)
-                float adjustedHeading = GetStopbarRotation(stopbar);
+                float adjustedHeading = visual.Rotation;
                 g.TranslateTransform(screenPos.X, screenPos.Y);
                 g.RotateTransform(adjustedHeading);
                 g.TranslateTransform(-imageSize / 2f, -imageSize / 2f);
@@ -1498,7 +1734,7 @@ namespace BARS.Windows
 
                     // Compute wind components and draw orange background for high crosswind or tailwind
                     ComputeWindComponentsForWindsock(windsock, out float crosswind, out float tailwind);
-                    bool highCrosswind = crosswind > 25.0f;
+                    bool highCrosswind = crosswind > 20.0f;
                     bool tailwindAlert = tailwind >= 5.0f;
                     if (highCrosswind || tailwindAlert)
                     {
@@ -1874,6 +2110,24 @@ namespace BARS.Windows
             public string width_ft { get; set; }
         }
 
+        private class TempStopbar
+        {
+            public MapStopbar Stopbar { get; set; }
+            public PointF BasePosition { get; set; }
+            public PointF RightUnit { get; set; }
+        }
+
+        private class StopbarVisual
+        {
+            public MapStopbar Stopbar { get; set; }
+            public PointF BasePosition { get; set; }
+            public PointF ScreenPosition { get; set; }
+            public float Rotation { get; set; }
+            public float ImageSize { get; set; }
+            public PointF RightUnit { get; set; }
+            public float SlideOffset { get; set; }
+        }
+
         private class RunwayInfo
         {
             public GeoPoint He { get; set; }
@@ -1892,6 +2146,7 @@ namespace BARS.Windows
             StartTime = DateTime.Now;
             TotalLength = 0;
             ProgressLength = 0;
+            StartLength = 0;
             PreviousState = false;
             IsReverse = false;
         }
@@ -1900,6 +2155,7 @@ namespace BARS.Windows
         public bool IsReverse { get; set; }
         public bool PreviousState { get; set; }
         public float ProgressLength { get; set; }
+        public float StartLength { get; set; }
         public DateTime StartTime { get; set; }
         public float TotalLength { get; set; }
     }

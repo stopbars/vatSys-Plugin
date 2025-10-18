@@ -56,8 +56,8 @@ namespace BARS.Util
                             {
                                 _logger.Log($"Audit desync detected {sb.BARSId} airport {airport}: local={sb.State} server={networkState}. Repairing...");
                                 sb.State = networkState;
-                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.Legacy);
-                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.INTAS);
+                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.Legacy, true);
+                                ControllerHandler.NotifyStopbarStateChanged(sb, WindowType.INTAS, true);
                             }
                         }
                         else

@@ -472,7 +472,7 @@ namespace BARS.Windows
         {
             if (e.Stopbar.Airport == this.Airport && e.WindowType == WindowType.INTAS)
             {
-                UpdateStopbarUI(e.Stopbar);
+                UpdateStopbarUI(e.Stopbar, e.FromNetwork);
             }
         }
 
@@ -492,16 +492,17 @@ namespace BARS.Windows
             }
         }
 
-        private void UpdateStopbarUI(Stopbar stopbar)
+        private void UpdateStopbarUI(Stopbar stopbar, bool fromNetwork)
         {
             if (this.InvokeRequired)
             {
-                this.Invoke(new Action<Stopbar>(UpdateStopbarUI), stopbar);
+                this.Invoke(new Action<Stopbar, bool>(UpdateStopbarUI), stopbar, fromNetwork);
                 return;
             }
 
+            bool shouldAutoRaise = fromNetwork ? false : stopbar.AutoRaise;
             // Pass AutoRaise so the map only shows countdowns when appropriate
-            airportMapControl.UpdateStopbarState(stopbar.BARSId, stopbar.State, stopbar.AutoRaise);
+            airportMapControl.UpdateStopbarState(stopbar.BARSId, stopbar.State, shouldAutoRaise);
 
             airportMapControl.UpdateLeadOnLightsForStopbar(stopbar.BARSId, stopbar.State);
 
