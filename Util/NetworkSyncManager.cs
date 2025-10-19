@@ -81,9 +81,10 @@ namespace BARS.Util
         private void OnStopbarRegistered(object sender, StopbarEventArgs e)
         {
             // Ensure inverse invariant is documented
-            if (!string.IsNullOrEmpty(e.Stopbar.LeadOnId))
+            var leadOns = e.Stopbar.LeadOnIds;
+            if (leadOns != null && leadOns.Count > 0)
             {
-                _logger.Log($"Stopbar {e.Stopbar.BARSId} registered with lead-on {e.Stopbar.LeadOnId} (inverse invariant).");
+                _logger.Log($"Stopbar {e.Stopbar.BARSId} registered with lead-on(s) {string.Join(", ", leadOns)} (inverse invariant).");
             }
         }
 
@@ -102,9 +103,12 @@ namespace BARS.Util
             _lastToggle[key] = now;
 
             // Lead-on invariant is handled in NetHandler (inverse) when sending; ensure we log for trace
-            if (!string.IsNullOrEmpty(stopbar.LeadOnId))
+            if (stopbar.LeadOnIds != null && stopbar.LeadOnIds.Count > 0)
             {
-                _logger.Log($"Invariant: LeadOn {stopbar.LeadOnId} considered {(stopbar.State ? "OFF" : "ON")} because Stopbar {stopbar.BARSId} is {(stopbar.State ? "ON" : "OFF")}");
+                foreach (var leadOnId in stopbar.LeadOnIds)
+                {
+                    _logger.Log($"Invariant: LeadOn {leadOnId} considered {(stopbar.State ? "OFF" : "ON")} because Stopbar {stopbar.BARSId} is {(stopbar.State ? "ON" : "OFF")}");
+                }
             }
         }
     }

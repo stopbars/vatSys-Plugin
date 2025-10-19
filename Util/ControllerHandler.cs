@@ -27,6 +27,30 @@ namespace BARS.Util
         // Event for new stopbar registration
         public static event EventHandler<StopbarEventArgs> StopbarRegistered;
 
+        private static IReadOnlyList<string> NormalizeLeadOnIds(IEnumerable<string> leadOnIds)
+        {
+            if (leadOnIds == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            return leadOnIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static string DescribeLeadOnIds(IReadOnlyCollection<string> leadOnIds)
+        {
+            if (leadOnIds == null || leadOnIds.Count == 0)
+            {
+                return "<none>";
+            }
+
+            return string.Join(", ", leadOnIds);
+        }
+
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
         public static void NotifyStopbarStateChanged(Stopbar stopbar, WindowType windowType, bool fromNetwork = false)
         {
@@ -58,15 +82,26 @@ namespace BARS.Util
         /// </summary>
         public static void RegisterStopbar(string airport, string displayName, string barsId, bool initialState = true, bool autoRaise = true)
         {
-            RegisterStopbar(airport, displayName, barsId, null, initialState, autoRaise);
+            RegisterStopbar(airport, displayName, barsId, (IEnumerable<string>)null, initialState, autoRaise);
         }
 
         /// <summary>
-        /// Registers a stopbar with an optional associated lead-on light.
-        /// Lead-on state is defined as the logical inverse of the stopbar state.
+        /// Registers a stopbar with a single lead-on identifier (legacy signature).
         /// </summary>
         public static void RegisterStopbar(string airport, string displayName, string barsId, string leadOnId, bool initialState = true, bool autoRaise = true)
         {
+            IEnumerable<string> leadOnIds = string.IsNullOrWhiteSpace(leadOnId) ? null : new[] { leadOnId };
+            RegisterStopbar(airport, displayName, barsId, leadOnIds, initialState, autoRaise);
+        }
+
+        /// <summary>
+        /// Registers a stopbar with zero or more lead-on identifiers.
+        /// Lead-on state is defined as the logical inverse of the stopbar state.
+        /// </summary>
+        public static void RegisterStopbar(string airport, string displayName, string barsId, IEnumerable<string> leadOnIds, bool initialState = true, bool autoRaise = true)
+        {
+            var normalizedLeadOnIds = NormalizeLeadOnIds(leadOnIds);
+
             if (!_stopbars.ContainsKey(airport))
             {
                 _stopbars[airport] = new Dictionary<string, Stopbar>();
@@ -74,10 +109,10 @@ namespace BARS.Util
 
             if (!_stopbars[airport].ContainsKey(barsId))
             {
-                var stopbar = new Stopbar(airport, displayName, barsId, leadOnId, initialState, autoRaise);
+                var stopbar = new Stopbar(airport, displayName, barsId, normalizedLeadOnIds, initialState, autoRaise);
                 stopbar.AutoRaiseTimer.Elapsed += (sender, e) => HandleAutoRaise(stopbar.Airport, stopbar.BARSId);
                 _stopbars[airport][barsId] = stopbar;
-                _logger.Log($"Registered stopbar {barsId} for {airport} with initial state: {(initialState ? "ON" : "OFF")}, AutoRaise: {autoRaise}, LeadOn: {(!string.IsNullOrEmpty(leadOnId) ? leadOnId : "<none>")}");
+                _logger.Log($"Registered stopbar {barsId} for {airport} with initial state: {(initialState ? "ON" : "OFF")}, AutoRaise: {autoRaise}, LeadOns: {DescribeLeadOnIds(stopbar.LeadOnIds)}");
                 StopbarRegistered?.Invoke(null, new StopbarEventArgs(stopbar, WindowType.Legacy));
                 // If NetHandler is in deferred seed mode, inform it so it can seed this stopbar now
                 var netHandler = NetManager.Instance.GetConnection(airport);
@@ -88,27 +123,23 @@ namespace BARS.Util
             }
             else
             {
-                // Already exists (likely from server INITIAL_STATE). If we now have a LeadOnId from profile and it wasn't set, update it.
+                // Already exists (likely from server INITIAL_STATE). Merge any newly supplied lead-ons.
                 var existing = _stopbars[airport][barsId];
-                bool leadOnAdded = false;
-                if (!string.IsNullOrEmpty(leadOnId) && string.IsNullOrEmpty(existing.LeadOnId))
-                {
-                    existing.LeadOnId = leadOnId;
-                    leadOnAdded = true;
-                    _logger.Log($"Updated stopbar {barsId} for {airport} with late LeadOnId: {leadOnId} (profile loaded after initial registration).");
-                }
+                bool leadOnAdded = existing.MergeLeadOnIds(normalizedLeadOnIds);
+
                 // Optionally update display name if differs (profile may have nicer name)
                 if (!string.IsNullOrEmpty(displayName) && existing.DisplayName != displayName)
                 {
                     existing.DisplayName = displayName;
                 }
-                // If we added a lead-on id, push a fresh state update so server now knows inverse pair.
+
                 if (leadOnAdded)
                 {
+                    _logger.Log($"Updated stopbar {barsId} for {airport} with additional lead-on(s): {DescribeLeadOnIds(existing.LeadOnIds)}");
                     var netHandler = NetManager.Instance.GetConnection(airport);
                     if (netHandler != null && netHandler.IsConnected())
                     {
-                        _ = netHandler.UpdateStopbar(existing, true); // force leadOnState=false on first send
+                        _ = netHandler.UpdateStopbar(existing, true); // force leadOnState=false on first send for new lead-ons
                     }
                 }
             }
@@ -212,16 +243,19 @@ namespace BARS.Util
 
     public class Stopbar
     {
-        public Stopbar(string airport, string displayName, string barsId, string leadOnId = null, bool initialState = true, bool autoRaise = true)
+        private readonly List<string> _leadOnIds;
+
+        public Stopbar(string airport, string displayName, string barsId, IEnumerable<string> leadOnIds = null, bool initialState = true, bool autoRaise = true)
         {
             Airport = airport;
             DisplayName = displayName;
             BARSId = barsId;
-            LeadOnId = leadOnId;
             State = initialState;
             AutoRaise = autoRaise;
             AutoRaiseTimer = new Timer(45000);
             AutoRaiseTimer.AutoReset = false;
+            _leadOnIds = new List<string>();
+            MergeLeadOnIds(leadOnIds);
         }
 
         public string Airport { get; set; }
@@ -236,9 +270,67 @@ namespace BARS.Util
         public string DisplayName { get; set; }
 
         /// <summary>
-        /// Optional lead-on identifier. Lead-on is considered ON when stopbar is OFF.
+        /// Collection of associated lead-on identifiers. Lead-on state is considered the inverse of the stopbar state.
         /// </summary>
-        public string LeadOnId { get; set; }
+        public IReadOnlyList<string> LeadOnIds => _leadOnIds;
+
+        /// <summary>
+        /// Adds any new lead-on identifiers to this stopbar. Returns true if at least one new identifier was added.
+        /// </summary>
+        public bool MergeLeadOnIds(IEnumerable<string> leadOnIds)
+        {
+            bool addedAny = false;
+            if (leadOnIds == null)
+            {
+                return false;
+            }
+
+            foreach (var id in leadOnIds)
+            {
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    continue;
+                }
+
+                string normalized = id.Trim();
+                bool alreadyPresent = _leadOnIds.Any(existing => string.Equals(existing, normalized, StringComparison.OrdinalIgnoreCase));
+                if (!alreadyPresent)
+                {
+                    _leadOnIds.Add(normalized);
+                    addedAny = true;
+                }
+            }
+
+            return addedAny;
+        }
+
+        /// <summary>
+        /// Convenience helper to determine if this stopbar tracks a given lead-on identifier.
+        /// </summary>
+        public bool HasLeadOn(string leadOnId)
+        {
+            if (string.IsNullOrWhiteSpace(leadOnId))
+            {
+                return false;
+            }
+
+            string normalized = leadOnId.Trim();
+            return _leadOnIds.Any(existing => string.Equals(existing, normalized, StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Obsolete("Use LeadOnIds instead.")]
+        public string LeadOnId
+        {
+            get => _leadOnIds.FirstOrDefault();
+            set
+            {
+                _leadOnIds.Clear();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    MergeLeadOnIds(new[] { value });
+                }
+            }
+        }
 
         public bool State { get; set; }
 

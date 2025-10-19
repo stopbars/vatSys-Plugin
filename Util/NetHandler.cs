@@ -355,13 +355,13 @@ namespace BARS.Util
 
             string objectId;
             bool networkState;
-            string leadOnId;
+            List<string> leadOnIds;
 
             lock (_updateLock)
             {
                 objectId = stopbar.BARSId;
                 networkState = ConvertStopbarStateToNetwork(stopbar);
-                leadOnId = stopbar.LeadOnId;
+                leadOnIds = stopbar.LeadOnIds?.ToList() ?? new List<string>();
                 _localStopbarStates[objectId] = networkState;
             }
 
@@ -403,28 +403,31 @@ namespace BARS.Util
             });
 
             // Separate packet for lead-on if applicable
-            if (!string.IsNullOrEmpty(leadOnId))
+            if (leadOnIds.Count > 0)
             {
-                bool leadOnState = forceLeadOnStateFalse ? false : !networkState; // inverse unless forcing false (initial seed / late assignment)
-                lock (_updateLock)
+                foreach (string leadOnId in leadOnIds)
                 {
-                    _localStopbarStates[leadOnId] = leadOnState;
-                }
-                var leadOnPacket = new
-                {
-                    type = "STATE_UPDATE",
-                    airport = _airport,
-                    data = new { objectId = leadOnId, state = leadOnState }
-                };
-                await SendPacket(leadOnPacket);
-                logger.Log($"Sent lead-on state update for {leadOnId} (state={leadOnState}) paired with stopbar {objectId}");
-                lock (_updateLock)
-                {
-                    _pendingLocalUpdates[leadOnId] = new PendingUpdate
+                    bool leadOnState = forceLeadOnStateFalse ? false : !networkState; // inverse unless forcing false (initial seed / late assignment)
+                    lock (_updateLock)
                     {
-                        State = leadOnState,
-                        SentAt = DateTime.UtcNow
+                        _localStopbarStates[leadOnId] = leadOnState;
+                    }
+                    var leadOnPacket = new
+                    {
+                        type = "STATE_UPDATE",
+                        airport = _airport,
+                        data = new { objectId = leadOnId, state = leadOnState }
                     };
+                    await SendPacket(leadOnPacket);
+                    logger.Log($"Sent lead-on state update for {leadOnId} (state={leadOnState}) paired with stopbar {objectId}");
+                    lock (_updateLock)
+                    {
+                        _pendingLocalUpdates[leadOnId] = new PendingUpdate
+                        {
+                            State = leadOnState,
+                            SentAt = DateTime.UtcNow
+                        };
+                    }
                 }
             }
         }
@@ -705,7 +708,9 @@ namespace BARS.Util
 
                 var localStopbars = ControllerHandler.GetStopbarsForAirport(_airport);
                 var primaryIds = new HashSet<string>(localStopbars.Select(s => s.BARSId));
-                var leadOnIds = new HashSet<string>(localStopbars.Where(s => !string.IsNullOrEmpty(s.LeadOnId)).Select(s => s.LeadOnId));
+                var leadOnIds = new HashSet<string>(
+                    localStopbars.SelectMany(s => s.LeadOnIds ?? Array.Empty<string>()),
+                    StringComparer.OrdinalIgnoreCase);
 
                 // Apply server authoritative states to existing primaries
                 foreach (var sb in localStopbars)
@@ -852,7 +857,7 @@ namespace BARS.Util
                     }
                     logger.Log($"Received state update for stopbar {objectId} from controller {controllerId}");
                 }
-                else if (all.Any(sb => sb.LeadOnId == objectId))
+                else if (all.Any(sb => sb.LeadOnIds != null && sb.LeadOnIds.Any(id => string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase))))
                 {
                     // Lead-on update: ignore (inverse derived from primary)
                     logger.Log($"Received lead-on update {objectId} (state={state}) from controller {controllerId} – ignored.");

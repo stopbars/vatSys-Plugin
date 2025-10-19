@@ -224,19 +224,33 @@ namespace BARS.Windows
                 string barsId = stopbar.SelectSingleNode("BARSId").InnerText;
                 string displayName = stopbar.SelectSingleNode("DisplayName").InnerText;
 
-                string leadOnId = null;
-                XmlNode leadOnNode = stopbar.SelectSingleNode("LeadOnId");
-                if (leadOnNode != null)
+                List<string> leadOnIds = new List<string>();
+                XmlNodeList leadOnNodes = stopbar.SelectNodes("LeadOnId");
+                if (leadOnNodes != null && leadOnNodes.Count > 0)
                 {
-                    leadOnId = leadOnNode.InnerText?.Trim();
-                    if (string.IsNullOrEmpty(leadOnId))
+                    foreach (XmlNode leadOnNode in leadOnNodes)
                     {
-                        logger.Log($"Profile stopbar {barsId}: LeadOnId is empty – ignoring.");
-                        leadOnId = null;
+                        string candidate = leadOnNode.InnerText?.Trim();
+                        if (string.IsNullOrEmpty(candidate))
+                        {
+                            logger.Log($"Profile stopbar {barsId}: LeadOnId entry is empty – ignoring.");
+                            continue;
+                        }
+
+                        bool alreadyAdded = leadOnIds.Any(id => string.Equals(id, candidate, StringComparison.OrdinalIgnoreCase));
+                        if (!alreadyAdded)
+                        {
+                            leadOnIds.Add(candidate);
+                        }
+                    }
+
+                    if (leadOnIds.Count > 0)
+                    {
+                        logger.Log($"Profile stopbar {barsId}: Parsed {leadOnIds.Count} LeadOnId(s): {string.Join(", ", leadOnIds)}.");
                     }
                     else
                     {
-                        logger.Log($"Profile stopbar {barsId}: Parsed LeadOnId '{leadOnId}'.");
+                        logger.Log($"Profile stopbar {barsId}: LeadOnId tags present but no valid values.");
                     }
                 }
                 else
@@ -244,9 +258,9 @@ namespace BARS.Windows
                     logger.Log($"Profile stopbar {barsId}: No LeadOnId tag found.");
                 }
 
-                if (!string.IsNullOrEmpty(leadOnId))
+                if (leadOnIds.Count > 0)
                 {
-                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, leadOnId, true);
+                    ControllerHandler.RegisterStopbar(Airport, displayName, barsId, leadOnIds, true);
                 }
                 else
                 {
