@@ -330,6 +330,8 @@ namespace BARS.Windows
             originalAspectRatio = (float)originalFormSize.Width / originalFormSize.Height;
             lastSize = this.ClientSize;
 
+            UpdateMinimumSizeForAspectRatio();
+
             if (pnl_legacy != null)
             {
                 pnl_legacy.Location = new Point(0, 0);
@@ -542,14 +544,12 @@ namespace BARS.Windows
                         }
                     }
 
-                    Size difference = new Size(
-                        this.Size.Width - this.ClientSize.Width,
-                        this.Size.Height - this.ClientSize.Height
-                    );
+                    Size nonClientPadding = GetNonClientPadding();
+                    newClientSize = ClampClientSizeToMinimum(newClientSize, nonClientPadding);
 
                     this.Size = new Size(
-                        newClientSize.Width + difference.Width,
-                        newClientSize.Height + difference.Height
+                        newClientSize.Width + nonClientPadding.Width,
+                        newClientSize.Height + nonClientPadding.Height
                     );
                 }
             }
@@ -557,6 +557,96 @@ namespace BARS.Windows
             {
                 isAdjustingFormSize = false;
             }
+        }
+
+        private Size ClampClientSizeToMinimum(Size proposedClientSize, Size nonClientPadding)
+        {
+            if ((this.MinimumSize.Width <= 0 && this.MinimumSize.Height <= 0) || originalAspectRatio <= 0f)
+            {
+                return proposedClientSize;
+            }
+
+            int minClientWidth = this.MinimumSize.Width > 0
+                ? Math.Max(1, this.MinimumSize.Width - nonClientPadding.Width)
+                : 1;
+            int minClientHeight = this.MinimumSize.Height > 0
+                ? Math.Max(1, this.MinimumSize.Height - nonClientPadding.Height)
+                : 1;
+
+            int iterations = 0;
+            bool adjusted;
+
+            do
+            {
+                adjusted = false;
+
+                if (proposedClientSize.Width < minClientWidth)
+                {
+                    proposedClientSize.Width = minClientWidth;
+                    proposedClientSize.Height = (int)Math.Round(proposedClientSize.Width / originalAspectRatio);
+                    adjusted = true;
+                }
+
+                if (proposedClientSize.Height < minClientHeight)
+                {
+                    proposedClientSize.Height = minClientHeight;
+                    proposedClientSize.Width = (int)Math.Round(proposedClientSize.Height * originalAspectRatio);
+                    adjusted = true;
+                }
+
+                iterations++;
+            }
+            while (adjusted && iterations < 3);
+
+            proposedClientSize.Width = Math.Max(proposedClientSize.Width, minClientWidth);
+            proposedClientSize.Height = Math.Max(proposedClientSize.Height, minClientHeight);
+
+            return proposedClientSize;
+        }
+
+        private Size GetNonClientPadding()
+        {
+            int paddingWidth = Math.Max(0, this.Size.Width - this.ClientSize.Width);
+            int paddingHeight = Math.Max(0, this.Size.Height - this.ClientSize.Height);
+            return new Size(paddingWidth, paddingHeight);
+        }
+
+        private void UpdateMinimumSizeForAspectRatio()
+        {
+            if (originalAspectRatio <= 0f)
+            {
+                return;
+            }
+
+            Size nonClientPadding = GetNonClientPadding();
+
+            int minClientWidth = this.MinimumSize.Width > 0
+                ? Math.Max(1, this.MinimumSize.Width - nonClientPadding.Width)
+                : originalFormSize.Width;
+            int minClientHeight = this.MinimumSize.Height > 0
+                ? Math.Max(1, this.MinimumSize.Height - nonClientPadding.Height)
+                : originalFormSize.Height;
+
+            if (minClientWidth <= 0)
+            {
+                minClientWidth = originalFormSize.Width;
+            }
+
+            if (minClientHeight <= 0)
+            {
+                minClientHeight = originalFormSize.Height;
+            }
+
+            int widthFromHeight = (int)Math.Round(minClientHeight * originalAspectRatio);
+            int heightFromWidth = (int)Math.Round(minClientWidth / originalAspectRatio);
+
+            minClientWidth = Math.Max(minClientWidth, widthFromHeight);
+            minClientHeight = Math.Max(minClientHeight, heightFromWidth);
+
+            int finalWidth = minClientWidth + nonClientPadding.Width;
+            int finalHeight = minClientHeight + nonClientPadding.Height;
+
+            this.MinimumSize = new Size(finalWidth, finalHeight);
         }
 
         private void Controller_ResizeEnd(object sender, EventArgs e)
