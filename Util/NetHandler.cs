@@ -63,11 +63,15 @@ namespace BARS.Util
 
         public delegate void StateUpdateEventHandler(object sender, Dictionary<string, object> stopbarStates);
 
+        public delegate void StopbarViolationEventHandler(object sender, Stopbar stopbar, string controllerId);
+
         public event ConnectionEventHandler OnConnectionChanged;
 
         public event ErrorEventHandler OnError;
 
         public event StateUpdateEventHandler OnStateUpdate;
+
+        public event StopbarViolationEventHandler OnStopbarViolation;
 
         public string ConnectionId { get; private set; }
         public string Airport => _airport;
@@ -590,15 +594,29 @@ namespace BARS.Util
                             // If the stopbar is already up, nothing to do (also cancel any pending delayed raise)
                             if (stopbar.State)
                             {
+                                CancellationTokenSource existingCts = null;
                                 lock (_updateLock)
                                 {
-                                    if (_pendingCrossingRaises.TryGetValue(objectId, out var existingCts))
+                                    if (_pendingCrossingRaises.TryGetValue(objectId, out existingCts))
                                     {
-                                        try { existingCts.Cancel(); existingCts.Dispose(); } catch { }
                                         _pendingCrossingRaises.Remove(objectId);
                                     }
                                 }
-                                logger.Log($"STOPBAR_CROSSING for {objectId} ignored – stopbar already raised.");
+                                if (existingCts != null)
+                                {
+                                    try { existingCts.Cancel(); } catch { }
+                                    try { existingCts.Dispose(); } catch { }
+                                }
+
+                                logger.Log($"STOPBAR_CROSSING violation detected for {objectId}; raised stopbar crossed by {crossingPilotId}. Raising OnStopbarViolation.");
+                                try
+                                {
+                                    OnStopbarViolation?.Invoke(this, stopbar, crossingPilotId);
+                                }
+                                catch (Exception ex)
+                                {
+                                    logger.Error($"STOPBAR violation event handler error for {objectId}: {ex.Message}");
+                                }
                                 break;
                             }
 

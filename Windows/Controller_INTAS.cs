@@ -29,6 +29,7 @@ namespace BARS.Windows
 
         private Dictionary<Control, bool> originalVisibility = new Dictionary<Control, bool>();
         private Timer resizeTimer = new Timer();
+        private NetHandler netHandler;
 
         public Controller_INTAS(string Airport, string Profile)
         {
@@ -46,6 +47,8 @@ namespace BARS.Windows
 
             ControllerHandler.StopbarStateChanged += StopbarStateChanged;
             MET.Instance.ProductsChanged += METARChanged;
+
+            AttachNetHandler();
         }
 
         private static string FormatProfileDisplay(string profile)
@@ -77,6 +80,85 @@ namespace BARS.Windows
         public void ToggleStopbar(string barsId, bool autoRaise = true)
         {
             ControllerHandler.ToggleStopbar(this.Airport, barsId, WindowType.INTAS, autoRaise);
+        }
+
+        private void AttachNetHandler()
+        {
+            try
+            {
+                var handler = NetManager.Instance.GetConnection(this.Airport);
+                if (handler == null)
+                {
+                    if (netHandler == null)
+                    {
+                        logger.Log($"No NetHandler available for {Airport}; stopbar violation alerts will be unavailable until connected.");
+                    }
+                    return;
+                }
+
+                if (ReferenceEquals(netHandler, handler))
+                {
+                    return;
+                }
+
+                if (netHandler != null)
+                {
+                    netHandler.OnStopbarViolation -= NetHandler_OnStopbarViolation;
+                }
+
+                netHandler = handler;
+                netHandler.OnStopbarViolation += NetHandler_OnStopbarViolation;
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Failed to attach NetHandler for {Airport}: {ex.Message}");
+            }
+        }
+
+        private void NetHandler_OnStopbarViolation(object sender, Stopbar stopbar, string controllerId)
+        {
+            try
+            {
+                string label = (stopbar != null && !string.IsNullOrWhiteSpace(stopbar.DisplayName))
+                    ? stopbar.DisplayName
+                    : stopbar?.BARSId ?? "unknown";
+
+                string runwayIdent = GetNearestRunwayIdent(stopbar?.BARSId);
+
+                logger.Log($"Stopbar violation detected for {label} (controller {controllerId ?? "unknown"}); nearest runway ident={runwayIdent ?? "<unknown>"}. Triggering aural alert.");
+
+                _ = AudioHandler.AnnounceStopbarViolation(Airport, runwayIdent, label, controllerId);
+            }
+            catch (Exception ex)
+            {
+                logger.Error($"Error handling stopbar violation alert: {ex.Message}");
+            }
+        }
+
+        private string GetNearestRunwayIdent(string barsId)
+        {
+            if (string.IsNullOrWhiteSpace(barsId) || airportMapControl == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                if (airportMapControl.InvokeRequired)
+                {
+                    return (string)airportMapControl.Invoke(new Func<string>(() => airportMapControl.GetNearestRunwayIdentForStopbar(barsId)));
+                }
+
+                return airportMapControl.GetNearestRunwayIdentForStopbar(barsId);
+            }
+            catch (ObjectDisposedException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
         }
 
         private void AirportMapControl_StopbarClicked(object sender, AirportMapControl.StopbarClickEventArgs e)
@@ -133,12 +215,19 @@ namespace BARS.Windows
 
                 MET.Instance.ProductsChanged -= METARChanged;
             }
+
+            if (netHandler != null)
+            {
+                netHandler.OnStopbarViolation -= NetHandler_OnStopbarViolation;
+                netHandler = null;
+            }
         }
 
         private void Controller_INTAS_Load(object sender, EventArgs e)
         {
             try
             {
+                AttachNetHandler();
 
                 airportMapControl.SetWind(0, 0);
 

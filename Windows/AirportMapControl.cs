@@ -146,6 +146,69 @@ namespace BARS.Windows
             return closestStopbar;
         }
 
+        public string GetNearestRunwayIdentForStopbar(string barsId)
+        {
+            if (string.IsNullOrWhiteSpace(barsId))
+            {
+                return null;
+            }
+
+            var stopbars = _mapData?.Stopbars;
+            if (stopbars == null || stopbars.Count == 0)
+            {
+                return null;
+            }
+
+            MapStopbar target = stopbars.FirstOrDefault(sb => string.Equals(sb.BarsId, barsId, StringComparison.OrdinalIgnoreCase))
+                                 ?? stopbars.FirstOrDefault(sb => string.Equals(sb.DisplayName, barsId, StringComparison.OrdinalIgnoreCase));
+            if (target == null)
+            {
+                return null;
+            }
+
+            var runways = _runways;
+            if (runways == null || runways.Count == 0)
+            {
+                if (_mapData != null)
+                {
+                    _ = FetchRunwaysAsync(_mapData.AirportIcao);
+                }
+                return null;
+            }
+
+            RunwayInfo nearest = null;
+            double nearestDist = double.MaxValue;
+            foreach (var rwy in runways)
+            {
+                double d = DistancePointToSegmentMeters(target.Position, rwy.Le, rwy.He);
+                if (d < nearestDist)
+                {
+                    nearestDist = d;
+                    nearest = rwy;
+                }
+            }
+
+            if (nearest == null)
+            {
+                return null;
+            }
+
+            double distToLe = DistancePointToSegmentMeters(target.Position, nearest.Le, nearest.Le);
+            double distToHe = DistancePointToSegmentMeters(target.Position, nearest.He, nearest.He);
+
+            string ident = null;
+            if (distToHe <= distToLe)
+            {
+                ident = !string.IsNullOrWhiteSpace(nearest.HeIdent) ? nearest.HeIdent : nearest.LeIdent;
+            }
+            else
+            {
+                ident = !string.IsNullOrWhiteSpace(nearest.LeIdent) ? nearest.LeIdent : nearest.HeIdent;
+            }
+
+            return string.IsNullOrWhiteSpace(ident) ? null : ident.Trim();
+        }
+
         public float GetZoom()
         {
             return _zoomLevel;
