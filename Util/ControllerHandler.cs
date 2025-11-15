@@ -23,6 +23,7 @@ namespace BARS.Util
 
         private static readonly object _toggleLock = new object();
         private static Dictionary<string, Dictionary<string, Stopbar>> _stopbars = new Dictionary<string, Dictionary<string, Stopbar>>();
+        private static readonly Dictionary<string, Dictionary<string, string>> _leadOnIndex = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
 
         // Event for new stopbar registration
         public static event EventHandler<StopbarEventArgs> StopbarRegistered;
@@ -49,6 +50,30 @@ namespace BARS.Util
             }
 
             return string.Join(", ", leadOnIds);
+        }
+
+        private static void IndexLeadOnIds(string airport, string parentBarsId, IReadOnlyList<string> leadOnIds)
+        {
+            if (leadOnIds == null || leadOnIds.Count == 0)
+            {
+                return;
+            }
+
+            if (!_leadOnIndex.TryGetValue(airport, out var index))
+            {
+                index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                _leadOnIndex[airport] = index;
+            }
+
+            foreach (var id in leadOnIds)
+            {
+                index[id] = parentBarsId;
+            }
+        }
+
+        public static bool IsLeadOnId(string airport, string barsId)
+        {
+            return _leadOnIndex.TryGetValue(airport, out var index) && index.ContainsKey(barsId);
         }
 
         public static event EventHandler<StopbarEventArgs> StopbarStateChanged;
@@ -112,6 +137,7 @@ namespace BARS.Util
                 var stopbar = new Stopbar(airport, displayName, barsId, normalizedLeadOnIds, initialState, autoRaise);
                 stopbar.AutoRaiseTimer.Elapsed += (sender, e) => HandleAutoRaise(stopbar.Airport, stopbar.BARSId);
                 _stopbars[airport][barsId] = stopbar;
+                IndexLeadOnIds(airport, barsId, stopbar.LeadOnIds);
                 _logger.Log($"Registered stopbar {barsId} for {airport} with initial state: {(initialState ? "ON" : "OFF")}, AutoRaise: {autoRaise}, LeadOns: {DescribeLeadOnIds(stopbar.LeadOnIds)}");
                 StopbarRegistered?.Invoke(null, new StopbarEventArgs(stopbar, WindowType.Legacy));
                 // If NetHandler is in deferred seed mode, inform it so it can seed this stopbar now
@@ -126,6 +152,7 @@ namespace BARS.Util
                 // Already exists (likely from server INITIAL_STATE). Merge any newly supplied lead-ons.
                 var existing = _stopbars[airport][barsId];
                 bool leadOnAdded = existing.MergeLeadOnIds(normalizedLeadOnIds);
+                IndexLeadOnIds(airport, barsId, existing.LeadOnIds);
 
                 // Optionally update display name if differs (profile may have nicer name)
                 if (!string.IsNullOrEmpty(displayName) && existing.DisplayName != displayName)
@@ -181,31 +208,35 @@ namespace BARS.Util
         public static void ToggleStopbar(string airport, string barsId, WindowType windowType, bool autoRaise = true)
         {
             var stopbar = GetStopbar(airport, barsId);
-            if (stopbar != null)
+            if (stopbar == null)
             {
-                var key = airport + "|" + barsId;
-                lock (_toggleLock)
+                return;
+            }
+
+            var key = airport + "|" + barsId;
+            lock (_toggleLock)
+            {
+                var now = DateTime.UtcNow;
+                if (_lastToggle.TryGetValue(key, out var last) && (now - last) < _minToggleInterval)
                 {
-                    if (_lastToggle.TryGetValue(key, out var last) && (DateTime.UtcNow - last) < _minToggleInterval)
-                    {
-                        return; // Ignore rapid repeat
-                    }
-                    _lastToggle[key] = DateTime.UtcNow;
+                    return; // Ignore rapid repeat
                 }
-                stopbar.State = !stopbar.State;
-                stopbar.AutoRaise = autoRaise;
+                _lastToggle[key] = now;
+            }
 
-                _logger.Log($"Toggled stopbar {barsId} at {airport} to {(stopbar.State ? "ON" : "OFF")}, AutoRaise: {autoRaise}");
+            stopbar.State = !stopbar.State;
+            stopbar.AutoRaise = autoRaise;
 
-                HandleStopbarTimer(stopbar);
+            _logger.Log($"Toggled stopbar {barsId} at {airport} to {(stopbar.State ? "ON" : "OFF")}, AutoRaise: {autoRaise}");
 
-                StopbarStateChanged?.Invoke(null, new StopbarEventArgs(stopbar, windowType));
+            HandleStopbarTimer(stopbar);
 
-                var netHandler = NetManager.Instance.GetConnection(airport);
-                if (netHandler != null)
-                {
-                    _ = netHandler.UpdateStopbar(stopbar);
-                }
+            StopbarStateChanged?.Invoke(null, new StopbarEventArgs(stopbar, windowType));
+
+            var netHandler = NetManager.Instance.GetConnection(airport);
+            if (netHandler != null)
+            {
+                _ = netHandler.UpdateStopbar(stopbar);
             }
         }
 

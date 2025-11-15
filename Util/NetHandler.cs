@@ -22,14 +22,10 @@ namespace BARS.Util
         // Track pending delayed raises triggered by STOPBAR_CROSSING to avoid duplicates
         private readonly Dictionary<string, CancellationTokenSource> _pendingCrossingRaises = new Dictionary<string, CancellationTokenSource>();
 
-        private readonly TimeSpan _pendingGrace = TimeSpan.FromMilliseconds(900);
-        private readonly Dictionary<string, PendingUpdate> _pendingLocalUpdates = new Dictionary<string, PendingUpdate>();
         private readonly SemaphoreSlim _sendSemaphore = new SemaphoreSlim(1, 1);
-        private readonly TimeSpan _snapshotMinInterval = TimeSpan.FromSeconds(2);
+        private readonly TimeSpan _snapshotMinInterval = TimeSpan.FromMilliseconds(600);
+        private readonly TimeSpan _snapshotBurstDelay = TimeSpan.FromMilliseconds(1200);
         private readonly object _updateLock = new object();
-
-        // window to ignore conflicting server reversions
-        private readonly TimeSpan _verificationDelay = TimeSpan.FromMilliseconds(450);
 
         private readonly Logger logger = new Logger("NetHandler");
         // serialize websocket sends
@@ -43,11 +39,12 @@ namespace BARS.Util
         private bool _isConnected = false;
         private DateTime _lastHeartbeatReceived;
         private DateTime _lastSnapshotRequest = DateTime.MinValue;
+        private CancellationTokenSource _snapshotBurstCts;
 
         // Local state cache (includes lead-on object IDs as separate entries when we send them)
         private Dictionary<string, object> _localStopbarStates = new Dictionary<string, object>();
 
-        private bool _processingNetworkUpdate = false;
+        private readonly HashSet<string> _networkEchoSuppression = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private ClientWebSocket _webSocket;
 
         public NetHandler(string connectionId = null)
@@ -209,6 +206,7 @@ namespace BARS.Util
             {
                 // Stop the heartbeat timer first
                 StopHeartbeat(heartbeatTimer);
+                CancelPendingSnapshot();
 
                 bool socketOpen = false;
                 try
@@ -340,8 +338,16 @@ namespace BARS.Util
         // Public method to request a snapshot (debounced)
         public async Task RequestStateSnapshot(bool force = false)
         {
-            if (!IsConnected()) return;
-            if (!force && (DateTime.UtcNow - _lastSnapshotRequest) < _snapshotMinInterval) return;
+            if (!IsConnected())
+            {
+                logger.Log("Skipped GET_STATE request because connection is down");
+                return;
+            }
+            if (!force && (DateTime.UtcNow - _lastSnapshotRequest) < _snapshotMinInterval)
+            {
+                logger.Log("Skipped GET_STATE request due to debounce window");
+                return;
+            }
             _lastSnapshotRequest = DateTime.UtcNow;
             await SendPacket(new
             {
@@ -352,11 +358,81 @@ namespace BARS.Util
             logger.Log("Sent GET_STATE request");
         }
 
+        private void ScheduleSnapshotReconciliation()
+        {
+            if (!IsConnected())
+            {
+                return;
+            }
+
+            CancellationTokenSource previous;
+            CancellationTokenSource pending;
+            lock (_updateLock)
+            {
+                previous = _snapshotBurstCts;
+                pending = new CancellationTokenSource();
+                _snapshotBurstCts = pending;
+            }
+
+            if (previous != null)
+            {
+                try
+                {
+                    previous.Cancel();
+                }
+                catch { }
+                finally
+                {
+                    previous.Dispose();
+                }
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(_snapshotBurstDelay, pending.Token);
+                    await RequestStateSnapshot(force: true);
+                }
+                catch (TaskCanceledException)
+                {
+                    // Swallow cancellations caused by newer requests.
+                }
+                catch (Exception ex)
+                {
+                    logger.Error($"Snapshot reconcile request failed: {ex.Message}");
+                }
+            });
+        }
+
+        private void CancelPendingSnapshot()
+        {
+            CancellationTokenSource pending;
+            lock (_updateLock)
+            {
+                pending = _snapshotBurstCts;
+                _snapshotBurstCts = null;
+            }
+
+            if (pending == null)
+            {
+                return;
+            }
+
+            try
+            {
+                pending.Cancel();
+            }
+            catch { }
+            finally
+            {
+                pending.Dispose();
+            }
+        }
+
         // Update stopbar state and send to server
         public async Task UpdateStopbar(Stopbar stopbar, bool forceLeadOnStateFalse = false)
         {
-            if (_processingNetworkUpdate) return;
-
             string objectId;
             bool networkState;
             List<string> leadOnIds;
@@ -364,12 +440,22 @@ namespace BARS.Util
             lock (_updateLock)
             {
                 objectId = stopbar.BARSId;
+                if (_networkEchoSuppression.Contains(objectId))
+                {
+                    logger.Log($"Skipping outbound state for {objectId} because network echo suppression is active");
+                    return;
+                }
                 networkState = ConvertStopbarStateToNetwork(stopbar);
                 leadOnIds = stopbar.LeadOnIds?.ToList() ?? new List<string>();
                 _localStopbarStates[objectId] = networkState;
             }
 
-            if (_webSocket == null || _webSocket.State != WebSocketState.Open) return;
+            if (_webSocket == null || _webSocket.State != WebSocketState.Open)
+            {
+                var socketState = _webSocket == null ? "null" : _webSocket.State.ToString();
+                logger.Log($"Skipping outbound state for {objectId} because socket state is {socketState}");
+                return;
+            }
 
             var packet = new
             {
@@ -379,32 +465,6 @@ namespace BARS.Util
             };
             await SendPacket(packet);
             logger.Log($"Sent stopbar state update for {objectId} (state={networkState}) to BARS server");
-
-            // Track optimistic local update
-            lock (_updateLock)
-            {
-                _pendingLocalUpdates[objectId] = new PendingUpdate
-                {
-                    State = networkState,
-                    SentAt = DateTime.UtcNow
-                };
-            }
-
-            // Schedule verification snapshot if not already scheduled for this object
-            _ = Task.Run(async () =>
-            {
-                bool schedule;
-                lock (_updateLock)
-                {
-                    schedule = _pendingLocalUpdates.ContainsKey(objectId) && !_pendingLocalUpdates[objectId].VerificationScheduled;
-                    if (schedule) _pendingLocalUpdates[objectId].VerificationScheduled = true;
-                }
-                if (schedule)
-                {
-                    await Task.Delay(_verificationDelay);
-                    await RequestStateSnapshot();
-                }
-            });
 
             // Separate packet for lead-on if applicable
             if (leadOnIds.Count > 0)
@@ -424,14 +484,6 @@ namespace BARS.Util
                     };
                     await SendPacket(leadOnPacket);
                     logger.Log($"Sent lead-on state update for {leadOnId} (state={leadOnState}) paired with stopbar {objectId}");
-                    lock (_updateLock)
-                    {
-                        _pendingLocalUpdates[leadOnId] = new PendingUpdate
-                        {
-                            State = leadOnState,
-                            SentAt = DateTime.UtcNow
-                        };
-                    }
                 }
             }
         }
@@ -464,14 +516,17 @@ namespace BARS.Util
             var stopbar = ControllerHandler.GetStopbar(airport, barsId);
             if (stopbar != null && stopbar.State != state)
             {
-                stopbar.State = state;
-                stopbar.AutoRaise = autoRaise;
+                using (BeginNetworkEchoSuppression(stopbar.BARSId))
+                {
+                    stopbar.State = state;
+                    stopbar.AutoRaise = autoRaise;
 
-                logger.Log($"Network update: Set stopbar {barsId} at {airport} to {(state ? "ON" : "OFF")}, broadcasting to all windows");
+                    logger.Log($"Network update: Set stopbar {barsId} at {airport} to {(state ? "ON" : "OFF")}, broadcasting to all windows");
 
-                // Broadcast to ALL window types (Legacy and INTAS)
-                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.Legacy, true);
-                ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.INTAS, true);
+                    // Broadcast to ALL window types (Legacy and INTAS)
+                    ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.Legacy, true);
+                    ControllerHandler.NotifyStopbarStateChanged(stopbar, WindowType.INTAS, true);
+                }
             }
         }
 
@@ -733,47 +788,38 @@ namespace BARS.Util
                 // Apply server authoritative states to existing primaries
                 foreach (var sb in localStopbars)
                 {
+                    bool isLeadOn = ControllerHandler.IsLeadOnId(_airport, sb.BARSId);
+                    if (isLeadOn)
+                    {
+                        if (serverStates.TryGetValue(sb.BARSId, out object leadStateObj))
+                        {
+                            bool leadState = Convert.ToBoolean(leadStateObj);
+                            if (sb.State != leadState)
+                            {
+                                SetStopbarStateFromNetwork(_airport, sb.BARSId, leadState, sb.AutoRaise);
+                                logger.Log($"Snapshot aligned lead-on {sb.BARSId} to server state {leadState}");
+                            }
+                        }
+                        continue;
+                    }
+
                     if (serverStates.TryGetValue(sb.BARSId, out object srvObj))
                     {
                         bool srvState = Convert.ToBoolean(srvObj);
-                        bool skip = false;
-                        lock (_updateLock)
-                        {
-                            if (_pendingLocalUpdates.TryGetValue(sb.BARSId, out var pending) && (DateTime.UtcNow - pending.SentAt) < _pendingGrace)
-                            {
-                                if (pending.State != srvState)
-                                {
-                                    // Conflict inside grace window – prefer local, schedule retry if not already
-                                    if (pending.RetryCount == 0)
-                                    {
-                                        pending.RetryCount++;
-                                        _ = UpdateStopbar(sb);
-                                    }
-                                    skip = true;
-                                }
-                                else
-                                {
-                                    _pendingLocalUpdates.Remove(sb.BARSId); // confirmed
-                                }
-                            }
-                        }
-                        if (skip) continue;
                         if (sb.State != srvState)
                         {
-                            _processingNetworkUpdate = true;
-                            try
-                            {
-                                SetStopbarStateFromNetwork(_airport, sb.BARSId, srvState, sb.AutoRaise);
-                            }
-                            finally { _processingNetworkUpdate = false; }
+                            SetStopbarStateFromNetwork(_airport, sb.BARSId, srvState, sb.AutoRaise);
                             logger.Log($"Reconciled stopbar {sb.BARSId} to server state {srvState}");
                         }
                     }
                     else
                     {
                         // Missing on server, announce local state
-                        _ = UpdateStopbar(sb);
-                        logger.Log($"Server missing {sb.BARSId}; pushed local state.");
+                        if (!ControllerHandler.IsLeadOnId(_airport, sb.BARSId))
+                        {
+                            _ = UpdateStopbar(sb);
+                            logger.Log($"Server missing {sb.BARSId}; pushed local state.");
+                        }
                     }
                 }
 
@@ -817,76 +863,40 @@ namespace BARS.Util
 
                 lock (_updateLock) _localStopbarStates[objectId] = state;
 
+                if (ControllerHandler.IsLeadOnId(_airport, objectId))
+                {
+                    var leadOnStopbar = ControllerHandler.GetStopbar(_airport, objectId);
+                    if (leadOnStopbar != null)
+                    {
+                        SetStopbarStateFromNetwork(_airport, objectId, state, leadOnStopbar.AutoRaise);
+                        logger.Log($"Applied lead-on state update for {objectId} from controller {controllerId}");
+                    }
+                    return;
+                }
+
                 var all = ControllerHandler.GetStopbarsForAirport(_airport);
                 var primary = all.FirstOrDefault(sb => sb.BARSId == objectId);
                 if (primary != null)
                 {
-                    // Check for recent optimistic local update
-                    bool suppress = false;
-                    bool needsRetry = false;
-                    lock (_updateLock)
-                    {
-                        if (_pendingLocalUpdates.TryGetValue(objectId, out var pending))
-                        {
-                            if ((DateTime.UtcNow - pending.SentAt) < _pendingGrace)
-                            {
-                                if (pending.State != state)
-                                {
-                                    // Conflict within grace window – schedule a single retry by re-sending our state
-                                    if (pending.RetryCount == 0)
-                                    {
-                                        pending.RetryCount++;
-                                        needsRetry = true;
-                                    }
-                                    suppress = true; // don't override our local yet
-                                }
-                                else
-                                {
-                                    // Server echoed desired state – clear pending
-                                    _pendingLocalUpdates.Remove(objectId);
-                                }
-                            }
-                            else
-                            {
-                                // Grace expired; accept server as authoritative
-                                _pendingLocalUpdates.Remove(objectId);
-                            }
-                        }
-                    }
-                    if (needsRetry)
-                    {
-                        _ = UpdateStopbar(primary); // resend
-                    }
-                    if (suppress) return; // ignore this revert attempt during grace
-
                     if (primary.State == state)
                     {
-                        // No change
                         return;
                     }
-                    _processingNetworkUpdate = true;
-                    try
-                    {
-                        SetStopbarStateFromNetwork(_airport, objectId, state, primary.AutoRaise);
-                    }
-                    finally
-                    {
-                        _processingNetworkUpdate = false;
-                    }
+                    SetStopbarStateFromNetwork(_airport, objectId, state, primary.AutoRaise);
                     logger.Log($"Received state update for stopbar {objectId} from controller {controllerId}");
                 }
                 else if (all.Any(sb => sb.LeadOnIds != null && sb.LeadOnIds.Any(id => string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase))))
                 {
                     // Lead-on update: ignore (inverse derived from primary)
-                    logger.Log($"Received lead-on update {objectId} (state={state}) from controller {controllerId} – ignored.");
+                    logger.Log($"Received lead-on update {objectId} (state={state}) from controller {controllerId} – ignored (legacy path).");
                 }
                 else
                 {
                     logger.Log($"Received update for unknown object {objectId} (state={state}) from controller {controllerId} – no action.");
                 }
 
-                // After any external update, request a snapshot (debounced) to repair potential rapid-tap divergence.
-                _ = RequestStateSnapshot();
+                // After burst of external activity, queue a reconciliation snapshot so we only fetch once the dust settles.
+                ScheduleSnapshotReconciliation();
             }
             catch (Exception ex)
             {
@@ -1098,12 +1108,33 @@ namespace BARS.Util
 
         // true when initial state empty but profile not yet loaded
         // delay before post-send verification snapshot
-        private class PendingUpdate
+        private IDisposable BeginNetworkEchoSuppression(string objectId) => new NetworkEchoSuppression(this, objectId);
+
+        private sealed class NetworkEchoSuppression : IDisposable
         {
-            public int RetryCount { get; set; }
-            public DateTime SentAt { get; set; }
-            public bool State { get; set; }
-            public bool VerificationScheduled { get; set; }
+            private readonly NetHandler _handler;
+            private readonly string _objectId;
+            private bool _disposed;
+
+            public NetworkEchoSuppression(NetHandler handler, string objectId)
+            {
+                _handler = handler;
+                _objectId = objectId;
+                lock (_handler._updateLock)
+                {
+                    _handler._networkEchoSuppression.Add(objectId);
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                lock (_handler._updateLock)
+                {
+                    _handler._networkEchoSuppression.Remove(_objectId);
+                }
+                _disposed = true;
+            }
         }
     }
 }
