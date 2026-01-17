@@ -40,18 +40,10 @@ namespace BARS.Util
             {
                 XmlDocument doc = new XmlDocument();
                 // Prefer CDN
-                string cdnUrl = CdnProfiles.GetAirportXmlUrl(airportIcao);
-                if (!string.IsNullOrEmpty(cdnUrl))
+                string xml = CdnProfiles.GetAirportXml(airportIcao);
+                if (!string.IsNullOrWhiteSpace(xml))
                 {
-                    string xml = CdnProfiles.DownloadXml(cdnUrl);
-                    if (!string.IsNullOrWhiteSpace(xml))
-                    {
-                        doc.LoadXml(xml);
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException($"Failed to download airport XML from {cdnUrl}");
-                    }
+                    doc.LoadXml(xml);
                 }
                 else
                 {

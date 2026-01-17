@@ -356,7 +356,7 @@ namespace BARS.Windows
 
             foreach (Stopbar stopbar in ControllerHandler.GetStopbarsForAirport(Airport))
             {
-                UpdateStopbarUI(stopbar);
+                UpdateStopbarUI(stopbar, false);
             }
         }
 
@@ -836,18 +836,21 @@ namespace BARS.Windows
             if (e.Stopbar.Airport == this.Airport && e.WindowType == WindowType.Legacy)
             {
                 // Update the UI based on the stopbar state
-                UpdateStopbarUI(e.Stopbar);
+                UpdateStopbarUI(e.Stopbar, e.FromNetwork);
             }
         }
 
-        void UpdateStopbarUI(Stopbar stopbar)
+        void UpdateStopbarUI(Stopbar stopbar, bool fromNetwork)
         {
             // Need to invoke on the UI thread if called from a background thread
             if (this.InvokeRequired)
             {
-                this.Invoke(new Action<Stopbar>(UpdateStopbarUI), stopbar);
+                this.Invoke(new Action<Stopbar, bool>(UpdateStopbarUI), stopbar, fromNetwork);
                 return;
             }
+
+            // When update comes from network, don't use AutoRaise (same logic as INTAS)
+            bool shouldAutoRaise = fromNetwork ? false : stopbar.AutoRaise;
 
             // Find stopbar controls using exact name matching
             foreach (Control control in GetAllControls(this))
@@ -875,6 +878,8 @@ namespace BARS.Windows
                     }
                 }
             }
+
+            logger.Log($"Updated stopbar {stopbar.BARSId}, state: {stopbar.State}, fromNetwork: {fromNetwork}");
         }
 
         public void ToggleStopbar(string barsId, bool autoRaise = true)

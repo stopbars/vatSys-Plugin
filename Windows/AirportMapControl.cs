@@ -17,7 +17,6 @@ namespace BARS.Windows
         private const int ANIMATION_FRAMES = 60;
         private const int ANIMATION_INTERVAL = 100;
 
-        // Angle snapping for stopbar sprites (visual nicety)
         private const float DEFAULT_ANGLE_SNAP_TOLERANCE_DEG = 7.5f;
 
         private const float LeadOnLineWidthOff = 0.5f;
@@ -28,9 +27,9 @@ namespace BARS.Windows
         private const int STOPBAR_BASE_SIZE = 16;
         private const float STOPBAR_MAX_SLIDE = 3f;
         private const float TaxiwayLineWidth = 1.0f;
-        private static readonly HttpClient _httpClient = new HttpClient();
 
-        // snap when within this many degrees of a target
+        private const int MIN_FRAME_INTERVAL_MS = 16; // ~60fps cap
+        private static readonly HttpClient _httpClient = new HttpClient();
         private static readonly float[] ANGLE_SNAP_TARGETS = new float[] { 0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f };
 
         private readonly Timer _animationTimer;
@@ -53,8 +52,7 @@ namespace BARS.Windows
 
         private bool _isDragging = false;
 
-        // parsed from METAR Gxx
-        private bool _isVariableWind = false; // METAR VRB indicator
+        private bool _isVariableWind = false;
 
         private Point _lastMousePosition;
         private Dictionary<string, LeadOnAnimationState> _leadOnAnimations = new Dictionary<string, LeadOnAnimationState>();
@@ -67,16 +65,34 @@ namespace BARS.Windows
         private Dictionary<Windsock, WindState> _windsockStates = new Dictionary<Windsock, WindState>();
         private float _zoomLevel = 1.0f;
         private readonly Dictionary<string, float> _stopbarSlideOffsetsWorld = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _expiredCountdownBuffer = new List<string>();
         private bool _stopbarSlidesInitialized = false;
+        private Dictionary<string, StopbarVisual> _cachedStopbarVisuals = new Dictionary<string, StopbarVisual>(StringComparer.OrdinalIgnoreCase);
+        private RectangleF _cachedVisualBounds;
+        private bool _hasCachedVisualBounds = false;
+        private bool _visualCacheDirty = true;
+        private readonly Dictionary<Windsock, RunwayInfo> _windsockNearestRunway = new Dictionary<Windsock, RunwayInfo>();
+
+        private DateTime _lastPaintTime = DateTime.MinValue;
+        private DateTime _lastZoomTime = DateTime.MinValue;
+        private const int ZOOM_SETTLE_MS = 150; // Time after last zoom to restore quality
+        private bool _isPanningOrZooming = false;
+        private bool _pendingInvalidate = false;
+        private Pen _taxiwayPen;
+        private SolidBrush _groundAprBrush;
+        private SolidBrush _groundTwyBrush;
+        private SolidBrush _groundBldBrush;
+        private SolidBrush _groundRwyBrush;
 
         public AirportMapControl()
         {
             SetStyle(ControlStyles.AllPaintingInWmPaint |
                      ControlStyles.UserPaint |
-                     ControlStyles.DoubleBuffer |
+                     ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw, true);
 
             BackColor = BackgroundColor;
+            InitializeCachedResources();
 
             _animationTimer = new Timer();
             _animationTimer.Interval = ANIMATION_INTERVAL;
@@ -88,6 +104,47 @@ namespace BARS.Windows
             _windSimulationTimer.Tick += WindSimulationTimer_Tick;
             _windSimulationTimer.Start();
             this.MouseWheel += OnMouseWheel;
+        }
+
+        private void InitializeCachedResources()
+        {
+            _taxiwayPen = new Pen(TaxiwayColor, TaxiwayLineWidth);
+            _taxiwayPen.StartCap = LineCap.Flat;
+            _taxiwayPen.EndCap = LineCap.Flat;
+            _taxiwayPen.LineJoin = LineJoin.Round;
+
+            _groundAprBrush = new SolidBrush(Color.FromArgb(83, 83, 83));
+            _groundTwyBrush = new SolidBrush(Color.FromArgb(63, 63, 63));
+            _groundBldBrush = new SolidBrush(Color.FromArgb(100, 43, 43));
+            _groundRwyBrush = new SolidBrush(Color.Black);
+        }
+
+        private void DisposeCachedResources()
+        {
+            _taxiwayPen?.Dispose();
+            _groundAprBrush?.Dispose();
+            _groundTwyBrush?.Dispose();
+            _groundBldBrush?.Dispose();
+            _groundRwyBrush?.Dispose();
+        }
+
+        private void ThrottledInvalidate()
+        {
+            var now = DateTime.Now;
+            var elapsed = (now - _lastPaintTime).TotalMilliseconds;
+
+            if (elapsed >= MIN_FRAME_INTERVAL_MS)
+            {
+                _pendingInvalidate = false;
+                Invalidate();
+            }
+            else
+            {
+                if (!_pendingInvalidate)
+                {
+                    _pendingInvalidate = true;
+                }
+            }
         }
 
         public event EventHandler<StopbarClickEventArgs> StopbarClicked;
@@ -120,7 +177,7 @@ namespace BARS.Windows
                 return null;
 
             var bounds = CalculateSquareDrawingBounds();
-            var visuals = BuildStopbarVisuals(bounds);
+            var visuals = GetStopbarVisuals(bounds);
             if (visuals.Count == 0)
                 return null;
 
@@ -220,8 +277,10 @@ namespace BARS.Windows
             {
                 _mapData = AirportMapData.LoadFromXml(airportIcao);
                 ResetStopbarSlides();
+                InvalidateStopbarVisualCache();
 
                 _windsockStates.Clear();
+                _windsockNearestRunway.Clear();
                 if (_mapData?.Windsocks != null)
                 {
                     foreach (var windsock in _mapData.Windsocks)
@@ -232,13 +291,13 @@ namespace BARS.Windows
 
                 Invalidate();
 
-                // Fire-and-forget fetch of runway geometry used for crosswind checks
                 _ = FetchRunwaysAsync(airportIcao);
             }
             catch (Exception ex)
             {
                 _logger.Error($"Failed to load airport map for {airportIcao}: {ex.Message}");
                 _mapData = null;
+                _windsockNearestRunway.Clear();
                 Invalidate();
             }
         }
@@ -253,6 +312,7 @@ namespace BARS.Windows
         {
             _zoomLevel = 1.0f;
             _panOffset = new PointF(0, 0);
+            InvalidateStopbarVisualCache();
             Invalidate();
         }
 
@@ -261,24 +321,26 @@ namespace BARS.Windows
             _defaultCountdownSeconds = Math.Max(1, Math.Min(300, seconds));
         }
 
-        // Allows overriding the map rotation (clockwise degrees) using external sources (e.g., ASMGCS file)
         public void SetMapRotation(double rotationDegreesCW)
         {
             if (_mapData == null) return;
             _mapData.Rotation = rotationDegreesCW;
             try { _mapData.RecalculateBounds(); } catch { /* ignore if not yet ready */ }
+            InvalidateStopbarVisualCache();
             Invalidate();
         }
 
         public void SetPan(PointF panOffset)
         {
             _panOffset = panOffset;
+            InvalidateStopbarVisualCache();
             Invalidate();
         }
 
         public void SetScalingRatio(float ratio)
         {
             _scalingRatio = ratio;
+            InvalidateStopbarVisualCache();
             Invalidate();
         }
 
@@ -286,7 +348,7 @@ namespace BARS.Windows
         {
             _baseWindDirection = direction;
             _baseWindSpeed = speed;
-            _baseWindGust = Math.Max(speed, _baseWindGust); // keep gust >= speed; leave as-is if previously higher
+            _baseWindGust = Math.Max(speed, _baseWindGust);
             _isVariableWind = false;
 
             _logger.Log($"Wind manually set to: {direction}° at {speed} knots");
@@ -305,6 +367,7 @@ namespace BARS.Windows
         public void SetZoom(float zoomLevel)
         {
             _zoomLevel = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, zoomLevel));
+            InvalidateStopbarVisualCache();
             Invalidate();
         }
 
@@ -455,7 +518,6 @@ namespace BARS.Windows
             }
         }
 
-        // Backward-compat wrapper: assumes autoRaise when not specified
         public void UpdateStopbarState(string barsId, bool state)
         {
             UpdateStopbarState(barsId, state, true);
@@ -605,7 +667,6 @@ namespace BARS.Windows
                 _logger.Error($"Error parsing wind from METAR: {ex.Message}");
             }
 
-            // Ensure UI updates to reflect new wind and potential crosswind highlighting
             Invalidate();
         }
 
@@ -617,6 +678,7 @@ namespace BARS.Windows
                 _animationTimer?.Dispose();
                 _windSimulationTimer?.Stop();
                 _windSimulationTimer?.Dispose();
+                DisposeCachedResources();
             }
             base.Dispose(disposing);
         }
@@ -657,6 +719,7 @@ namespace BARS.Windows
             if (e.Button == MouseButtons.Middle)
             {
                 _isDragging = true;
+                _isPanningOrZooming = true;
                 _lastMousePosition = e.Location;
                 this.Cursor = Cursors.SizeAll;
             }
@@ -669,6 +732,7 @@ namespace BARS.Windows
             if (_isDragging)
             {
                 _isDragging = false;
+                _isPanningOrZooming = false;
                 this.Cursor = Cursors.Default;
             }
         }
@@ -687,7 +751,8 @@ namespace BARS.Windows
 
                 _lastMousePosition = e.Location;
 
-                Invalidate();
+                InvalidateStopbarVisualCache();
+                ThrottledInvalidate();
             }
         }
 
@@ -698,15 +763,38 @@ namespace BARS.Windows
             if (e.Button == MouseButtons.Middle && _isDragging)
             {
                 _isDragging = false;
+                _isPanningOrZooming = false;
                 this.Cursor = Cursors.Default;
+                Invalidate();
             }
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            InvalidateStopbarVisualCache();
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            _lastPaintTime = DateTime.Now;
 
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            // Use lower quality during rapid pan/zoom for smoother interaction
+            if (_isPanningOrZooming)
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.HighSpeed;
+                e.Graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                e.Graphics.CompositingQuality = CompositingQuality.HighSpeed;
+            }
+            else
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                e.Graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                e.Graphics.CompositingQuality = CompositingQuality.HighQuality;
+            }
 
             var squareBounds = CalculateSquareDrawingBounds();
 
@@ -730,7 +818,7 @@ namespace BARS.Windows
 
             DrawWindsocks(e.Graphics, squareBounds);
 
-            var stopbarVisuals = BuildStopbarVisuals(squareBounds);
+            var stopbarVisuals = GetStopbarVisuals(squareBounds);
 
             DrawStopbars(e.Graphics, stopbarVisuals);
 
@@ -786,10 +874,8 @@ namespace BARS.Windows
             var Ay = (a.Latitude - p.Latitude) * mPerDegLat;
             var Bx = (b.Longitude - p.Longitude) * mPerDegLon;
             var By = (b.Latitude - p.Latitude) * mPerDegLat;
-            var Px = 0.0; // by definition of local frame centered at p
+            var Px = 0.0;
             var Py = 0.0;
-
-            // Vector operations in 2D
             double ABx = Bx - Ax;
             double ABy = By - Ay;
             double APx = Px - Ax;
@@ -797,7 +883,6 @@ namespace BARS.Windows
             double ab2 = ABx * ABx + ABy * ABy;
             if (ab2 <= 1e-6)
             {
-                // Degenerate segment – return distance to A
                 return Math.Sqrt(APx * APx + APy * APy);
             }
             double t = (APx * ABx + APy * ABy) / ab2;
@@ -849,7 +934,7 @@ namespace BARS.Windows
             _animationFrame = (_animationFrame + 1) % ANIMATION_FRAMES;
 
             bool needsRepaint = false;
-            foreach (var kvp in _leadOnAnimations.ToList())
+            foreach (var kvp in _leadOnAnimations)
             {
                 var animState = kvp.Value; if (animState.IsAnimating)
                 {
@@ -910,16 +995,46 @@ namespace BARS.Windows
                 }
             }
 
-            var expiredCountdowns = _stopbarCountdowns.Where(kvp => !kvp.Value.IsActive).ToList();
-            foreach (var expired in expiredCountdowns)
+            _expiredCountdownBuffer.Clear();
+            foreach (var kvp in _stopbarCountdowns)
             {
-                _stopbarCountdowns.Remove(expired.Key);
+                if (!kvp.Value.IsActive)
+                {
+                    _expiredCountdownBuffer.Add(kvp.Key);
+                }
+            }
+
+            if (_expiredCountdownBuffer.Count > 0)
+            {
+                for (int i = 0; i < _expiredCountdownBuffer.Count; i++)
+                {
+                    _stopbarCountdowns.Remove(_expiredCountdownBuffer[i]);
+                }
                 needsRepaint = true;
             }
 
             if (_stopbarCountdowns.Count > 0)
             {
                 needsRepaint = true;
+            }
+
+            // Handle deferred invalidate from throttling
+            if (_pendingInvalidate)
+            {
+                _pendingInvalidate = false;
+                needsRepaint = true;
+            }
+
+            // Check if zooming has settled - restore quality and do final repaint
+            if (_isPanningOrZooming && !_isDragging && _lastZoomTime != DateTime.MinValue)
+            {
+                var zoomElapsed = (DateTime.Now - _lastZoomTime).TotalMilliseconds;
+                if (zoomElapsed >= ZOOM_SETTLE_MS)
+                {
+                    _isPanningOrZooming = false;
+                    _lastZoomTime = DateTime.MinValue;
+                    needsRepaint = true; // Final high-quality repaint
+                }
             }
 
             if (needsRepaint)
@@ -969,6 +1084,40 @@ namespace BARS.Windows
             );
         }
 
+        private void InvalidateStopbarVisualCache()
+        {
+            _visualCacheDirty = true;
+        }
+
+        private void RebuildWindsockRunwayCache()
+        {
+            _windsockNearestRunway.Clear();
+            if (_runways == null || _runways.Count == 0)
+                return;
+            if (_mapData?.Windsocks == null || _mapData.Windsocks.Count == 0)
+                return;
+
+            foreach (var windsock in _mapData.Windsocks)
+            {
+                RunwayInfo nearest = null;
+                double nearestDist = double.MaxValue;
+                foreach (var rwy in _runways)
+                {
+                    double d = DistancePointToSegmentMeters(windsock.Position, rwy.Le, rwy.He);
+                    if (d < nearestDist)
+                    {
+                        nearestDist = d;
+                        nearest = rwy;
+                    }
+                }
+
+                if (nearest != null)
+                {
+                    _windsockNearestRunway[windsock] = nearest;
+                }
+            }
+        }
+
         /// <summary>
         /// Computes crosswind and tailwind components for the windsock against the nearest runway.
         /// Also ensures the runway heading used matches the closest runway end (e.g., HE -> use LE→HE heading and HE ident, LE -> use HE→LE).
@@ -983,16 +1132,24 @@ namespace BARS.Windows
             if (_runways == null || _runways.Count == 0) return;
             if (!_windsockStates.TryGetValue(windsock, out var wind)) return;
 
-            // Choose nearest runway by shortest distance to runway segment in a local tangent plane
-            RunwayInfo nearest = null;
-            double nearestDist = double.MaxValue;
-            foreach (var rwy in _runways)
+            _windsockNearestRunway.TryGetValue(windsock, out var nearest);
+            if (nearest == null)
             {
-                double d = DistancePointToSegmentMeters(windsock.Position, rwy.Le, rwy.He);
-                if (d < nearestDist)
+                // Choose nearest runway by shortest distance to runway segment in a local tangent plane
+                double nearestDist = double.MaxValue;
+                foreach (var rwy in _runways)
                 {
-                    nearestDist = d;
-                    nearest = rwy;
+                    double d = DistancePointToSegmentMeters(windsock.Position, rwy.Le, rwy.He);
+                    if (d < nearestDist)
+                    {
+                        nearestDist = d;
+                        nearest = rwy;
+                    }
+                }
+
+                if (nearest != null)
+                {
+                    _windsockNearestRunway[windsock] = nearest;
                 }
             }
             if (nearest == null) return;
@@ -1036,15 +1193,12 @@ namespace BARS.Windows
         {
             headingDeg = 0;
             if (string.IsNullOrWhiteSpace(ident)) return false;
-            // Extract leading digits (handles 16, 34L, 05, etc.)
             int i = 0;
             while (i < ident.Length && char.IsDigit(ident[i])) i++;
             if (i == 0) return false;
             if (!int.TryParse(ident.Substring(0, i), out int num)) return false;
-            // Map runway number to degrees. 36 => 360 => treat as 0° to keep 0..359.
             if (num == 36) headingDeg = 0;
             else headingDeg = (num % 36) * 10;
-            // Normalize just in case
             if (headingDeg < 0) headingDeg = (headingDeg % 360 + 360) % 360;
             else headingDeg = headingDeg % 360;
             return true;
@@ -1223,43 +1377,67 @@ namespace BARS.Windows
                 if (actualKey == null) continue;
 
                 var elementType = new KeyValuePair<string, List<MapElement>>(actualKey, _groundElements[actualKey]);
-                Color fillColor = GetGroundElementColor(elementType.Key);
+                SolidBrush brush = GetCachedBrush(elementType.Key);
 
-                using (var brush = new SolidBrush(fillColor))
+                foreach (var element in elementType.Value)
                 {
-                    foreach (var element in elementType.Value)
+                    if (element.Points.Count >= 3)
                     {
-                        if (element.Points.Count >= 3)
+                        try
                         {
-                            try
+                            var screenPoints = new PointF[element.Points.Count];
+                            bool validPoints = true;
+                            float minX = float.MaxValue, maxX = float.MinValue;
+                            float minY = float.MaxValue, maxY = float.MinValue;
+
+                            for (int i = 0; i < element.Points.Count; i++)
                             {
-                                var screenPoints = new PointF[element.Points.Count];
-                                bool validPoints = true; for (int i = 0; i < element.Points.Count; i++)
-                                {
-                                    var geoPoint = new GeoPoint(element.Points[i].Longitude, element.Points[i].Latitude);
-                                    var screenPoint = _mapData.GeoToScreen(geoPoint, bounds, _zoomLevel, _panOffset);
+                                var geoPoint = new GeoPoint(element.Points[i].Longitude, element.Points[i].Latitude);
+                                var screenPoint = _mapData.GeoToScreen(geoPoint, bounds, _zoomLevel, _panOffset);
 
-                                    if (float.IsInfinity(screenPoint.X) || float.IsInfinity(screenPoint.Y) ||
-                                        float.IsNaN(screenPoint.X) || float.IsNaN(screenPoint.Y))
-                                    {
-                                        validPoints = false;
-                                        break;
-                                    }
-
-                                    screenPoints[i] = screenPoint;
-                                }
-                                if (validPoints && screenPoints.Length >= 3)
+                                if (float.IsInfinity(screenPoint.X) || float.IsInfinity(screenPoint.Y) ||
+                                    float.IsNaN(screenPoint.X) || float.IsNaN(screenPoint.Y))
                                 {
-                                    g.FillPolygon(brush, screenPoints);
+                                    validPoints = false;
+                                    break;
                                 }
+
+                                screenPoints[i] = screenPoint;
+
+                                if (screenPoint.X < minX) minX = screenPoint.X;
+                                if (screenPoint.X > maxX) maxX = screenPoint.X;
+                                if (screenPoint.Y < minY) minY = screenPoint.Y;
+                                if (screenPoint.Y > maxY) maxY = screenPoint.Y;
                             }
-                            catch (Exception)
+
+                            if (validPoints && (maxX < 0 || minX > this.Width || maxY < 0 || minY > this.Height))
                             {
                                 continue;
                             }
+
+                            if (validPoints && screenPoints.Length >= 3)
+                            {
+                                g.FillPolygon(brush, screenPoints);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            continue;
                         }
                     }
                 }
+            }
+        }
+
+        private SolidBrush GetCachedBrush(string elementType)
+        {
+            switch (elementType?.ToUpperInvariant())
+            {
+                case "GROUND_RWY": return _groundRwyBrush;
+                case "GROUND_APR": return _groundAprBrush;
+                case "GROUND_TWY": return _groundTwyBrush;
+                case "GROUND_BLD": return _groundBldBrush;
+                default: return _groundTwyBrush;
             }
         }
 
@@ -1355,27 +1533,32 @@ namespace BARS.Windows
                 scaledFontSize = 4f;
             }
 
+            float padding = 0.5f * _scalingRatio * _zoomLevel;
+            float horizontalPadding = padding + (1.0f * _scalingRatio * _zoomLevel);
+
             using (var font = new Font("Arial", scaledFontSize, FontStyle.Bold))
             using (var textBrush = new SolidBrush(Color.White))
             using (var backgroundBrush = new SolidBrush(Color.Black))
             {
-                var textSize = g.MeasureString(timeText, font);
-
-                float padding = 0.5f * _scalingRatio * _zoomLevel;
-
-                float horizontalPadding = padding + (1.0f * _scalingRatio * _zoomLevel);
-                float labelWidth = textSize.Width + (horizontalPadding * 2);
-                float labelHeight = textSize.Height + (padding * 2);
-
-                float labelX = screenPos.X - (imageSize / 2f) - labelWidth;
-                float labelY = screenPos.Y - (imageSize / 2f);
-                RectangleF labelRect = new RectangleF(labelX, labelY, labelWidth, labelHeight);
-
-                g.FillRectangle(backgroundBrush, labelRect);
-                float textX = labelX + horizontalPadding;
-                float textY = labelY + padding;
-                g.DrawString(timeText, font, textBrush, textX, textY);
+                DrawStopbarCountdownLabel(g, stopbar, screenPos, imageSize, timeText, font, textBrush, backgroundBrush, padding, horizontalPadding);
             }
+        }
+
+        private void DrawStopbarCountdownLabel(Graphics g, MapStopbar stopbar, PointF screenPos, int imageSize, string timeText, Font font, Brush textBrush, Brush backgroundBrush, float padding, float horizontalPadding)
+        {
+            var textSize = g.MeasureString(timeText, font);
+
+            float labelWidth = textSize.Width + (horizontalPadding * 2);
+            float labelHeight = textSize.Height + (padding * 2);
+
+            float labelX = screenPos.X - (imageSize / 2f) - labelWidth;
+            float labelY = screenPos.Y - (imageSize / 2f);
+            RectangleF labelRect = new RectangleF(labelX, labelY, labelWidth, labelHeight);
+
+            g.FillRectangle(backgroundBrush, labelRect);
+            float textX = labelX + horizontalPadding;
+            float textY = labelY + padding;
+            g.DrawString(timeText, font, textBrush, textX, textY);
         }
 
         private void DrawStopbarCountdownLabels(Graphics g, Dictionary<string, StopbarVisual> visuals)
@@ -1383,23 +1566,41 @@ namespace BARS.Windows
             if (_stopbarCountdowns.Count == 0 || visuals == null || visuals.Count == 0)
                 return;
 
-            foreach (var visual in visuals.Values)
+            float baseFontSize = 4f;
+            float scaledFontSize = baseFontSize * _scalingRatio * _zoomLevel;
+            if (scaledFontSize <= 0f || float.IsNaN(scaledFontSize) || float.IsInfinity(scaledFontSize))
             {
-                var stopbar = visual.Stopbar;
-                if (!_stopbarCountdowns.ContainsKey(stopbar.BarsId) || !_stopbarCountdowns[stopbar.BarsId].IsActive)
-                    continue;
+                scaledFontSize = 4f;
+            }
+            float padding = 0.5f * _scalingRatio * _zoomLevel;
+            float horizontalPadding = padding + (1.0f * _scalingRatio * _zoomLevel);
 
-                PointF screenPos = visual.ScreenPosition;
-                int imageSize = Math.Max(1, (int)Math.Round(visual.ImageSize));
-
-                float margin = Math.Max(imageSize * 3, 200);
-                if (screenPos.X < -margin || screenPos.X > this.Width + margin ||
-                    screenPos.Y < -margin || screenPos.Y > this.Height + margin)
+            using (var font = new Font("Arial", scaledFontSize, FontStyle.Bold))
+            using (var textBrush = new SolidBrush(Color.White))
+            using (var backgroundBrush = new SolidBrush(Color.Black))
+            {
+                foreach (var visual in visuals.Values)
                 {
-                    continue;
-                }
+                    var stopbar = visual.Stopbar;
+                    if (!_stopbarCountdowns.ContainsKey(stopbar.BarsId) || !_stopbarCountdowns[stopbar.BarsId].IsActive)
+                        continue;
 
-                DrawStopbarCountdownLabel(g, stopbar, screenPos, imageSize);
+                    PointF screenPos = visual.ScreenPosition;
+                    int imageSize = Math.Max(1, (int)Math.Round(visual.ImageSize));
+
+                    float margin = Math.Max(imageSize * 3, 200);
+                    if (screenPos.X < -margin || screenPos.X > this.Width + margin ||
+                        screenPos.Y < -margin || screenPos.Y > this.Height + margin)
+                    {
+                        continue;
+                    }
+
+                    var countdown = _stopbarCountdowns[stopbar.BarsId];
+                    var remaining = countdown.RemainingTime;
+                    string timeText = $"T{remaining.Minutes}:{remaining.Seconds:D2}";
+
+                    DrawStopbarCountdownLabel(g, stopbar, screenPos, imageSize, timeText, font, textBrush, backgroundBrush, padding, horizontalPadding);
+                }
             }
         }
 
@@ -1454,6 +1655,29 @@ namespace BARS.Windows
             }
 
             return layout;
+        }
+
+        private static bool BoundsRoughlyEqual(RectangleF a, RectangleF b)
+        {
+            const float tolerance = 0.5f;
+            return Math.Abs(a.X - b.X) < tolerance &&
+                   Math.Abs(a.Y - b.Y) < tolerance &&
+                   Math.Abs(a.Width - b.Width) < tolerance &&
+                   Math.Abs(a.Height - b.Height) < tolerance;
+        }
+
+        private Dictionary<string, StopbarVisual> GetStopbarVisuals(RectangleF bounds)
+        {
+            if (!_visualCacheDirty && _hasCachedVisualBounds && BoundsRoughlyEqual(bounds, _cachedVisualBounds))
+            {
+                return _cachedStopbarVisuals;
+            }
+
+            _cachedStopbarVisuals = BuildStopbarVisuals(bounds);
+            _cachedVisualBounds = bounds;
+            _hasCachedVisualBounds = true;
+            _visualCacheDirty = false;
+            return _cachedStopbarVisuals;
         }
 
         private double GetCurrentScale(RectangleF bounds)
@@ -1630,6 +1854,25 @@ namespace BARS.Windows
             if (_mapData?.Stopbars == null || visuals == null || visuals.Count == 0)
                 return;
 
+            var qualityState = g.Save();
+
+            // Use lower quality during panning/zooming for performance
+            if (_isPanningOrZooming)
+            {
+                g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                g.SmoothingMode = SmoothingMode.HighSpeed;
+                g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                g.CompositingQuality = CompositingQuality.HighSpeed;
+            }
+            else
+            {
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.SmoothingMode = SmoothingMode.HighQuality;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                g.CompositingQuality = CompositingQuality.HighQuality;
+            }
+            g.CompositingMode = CompositingMode.SourceOver;
+
             foreach (var visual in visuals.Values)
             {
                 var stopbar = visual.Stopbar;
@@ -1684,12 +1927,6 @@ namespace BARS.Windows
                 }
 
                 var state = g.Save();
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.HighQuality;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                g.CompositingQuality = CompositingQuality.HighQuality;
-                g.CompositingMode = CompositingMode.SourceOver;
-
                 float adjustedHeading = visual.Rotation;
                 g.TranslateTransform(screenPos.X, screenPos.Y);
                 g.RotateTransform(adjustedHeading);
@@ -1698,31 +1935,44 @@ namespace BARS.Windows
                 g.DrawImage(stopbarImage, 0, 0, imageSize, imageSize);
                 g.Restore(state);
             }
+
+            g.Restore(qualityState);
         }
 
         private void DrawTaxiways(Graphics g, RectangleF bounds)
         {
             float scaledLineWidth = Math.Max(MIN_LINE_WIDTH, TaxiwayLineWidth * _zoomLevel * _scalingRatio);
-            using (var pen = new Pen(TaxiwayColor, scaledLineWidth))
+
+            // Update cached pen width
+            _taxiwayPen.Width = scaledLineWidth;
+
+            foreach (var line in _mapData.Taxiways.Lines)
             {
-                pen.StartCap = LineCap.Flat;
-                pen.EndCap = LineCap.Flat;
-                pen.LineJoin = LineJoin.Round;
+                if (line.Points.Count < 2) continue;
 
-                foreach (var line in _mapData.Taxiways.Lines)
+                var screenPoints = new PointF[line.Points.Count];
+                bool anyVisible = false;
+                float margin = 50f; // Include lines that are just outside viewport
+
+                for (int i = 0; i < line.Points.Count; i++)
                 {
-                    if (line.Points.Count < 2) continue;
+                    screenPoints[i] = _mapData.GeoToScreen(line.Points[i], bounds, _zoomLevel, _panOffset);
 
-                    var screenPoints = new PointF[line.Points.Count];
-                    for (int i = 0; i < line.Points.Count; i++)
+                    // Check if any point is within or near the visible area
+                    if (!anyVisible &&
+                        screenPoints[i].X >= -margin && screenPoints[i].X <= this.Width + margin &&
+                        screenPoints[i].Y >= -margin && screenPoints[i].Y <= this.Height + margin)
                     {
-                        screenPoints[i] = _mapData.GeoToScreen(line.Points[i], bounds, _zoomLevel, _panOffset);
+                        anyVisible = true;
                     }
+                }
 
-                    if (screenPoints.Length >= 2)
-                    {
-                        g.DrawLines(pen, screenPoints);
-                    }
+                // Skip lines that are completely offscreen
+                if (!anyVisible) continue;
+
+                if (screenPoints.Length >= 2)
+                {
+                    g.DrawLines(_taxiwayPen, screenPoints);
                 }
             }
         }
@@ -1749,6 +1999,15 @@ namespace BARS.Windows
             foreach (var windsock in _mapData.Windsocks)
             {
                 var screenPoint = _mapData.GeoToScreen(windsock.Position, bounds, _zoomLevel, _panOffset);
+                if (_isPanningOrZooming)
+                {
+                    float margin = 100f;
+                    if (screenPoint.X < -margin || screenPoint.X > this.Width + margin ||
+                        screenPoint.Y < -margin || screenPoint.Y > this.Height + margin)
+                    {
+                        continue;
+                    }
+                }
 
                 var windState = _windsockStates.ContainsKey(windsock) ?
                     _windsockStates[windsock] :
@@ -1767,9 +2026,20 @@ namespace BARS.Windows
                 }
 
                 var state = g.Save();
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                g.SmoothingMode = SmoothingMode.HighQuality;
-                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                // Use lower quality during panning/zooming
+                if (_isPanningOrZooming)
+                {
+                    g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                    g.SmoothingMode = SmoothingMode.HighSpeed;
+                    g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                }
+                else
+                {
+                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                    g.SmoothingMode = SmoothingMode.HighQuality;
+                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                }
 
                 // Rotate around the icon center for predictable orientation
                 g.TranslateTransform(screenPoint.X, screenPoint.Y);
@@ -1794,8 +2064,6 @@ namespace BARS.Windows
                     var textSize = g.MeasureString(windText, font);
                     float textX = screenPoint.X - textSize.Width / 2;
                     float textY = screenPoint.Y + (imageSize / 2) + (16 * _scalingRatio * _zoomLevel);
-
-                    // Compute wind components and draw orange background for high crosswind or tailwind
                     ComputeWindComponentsForWindsock(windsock, out float crosswind, out float tailwind);
                     bool highCrosswind = crosswind > 20.0f;
                     bool tailwindAlert = tailwind >= 5.0f;
@@ -1845,7 +2113,6 @@ namespace BARS.Windows
             }
         }
 
-        // ---------------- Runway/crosswind helpers ----------------
         private async Task FetchRunwaysAsync(string icao)
         {
             try
@@ -1885,9 +2152,10 @@ namespace BARS.Windows
                 }
 
                 _runways = list.Count > 0 ? list : null;
-                // Trigger repaint when runway data arrives
                 if (_runways != null && _runways.Count > 0)
                 {
+                    RebuildWindsockRunwayCache();
+
                     if (IsHandleCreated)
                     {
                         BeginInvoke((Action)(Invalidate));
@@ -1974,21 +2242,15 @@ namespace BARS.Windows
         private bool IsLeadOnStopbarActive(string leadOnId)
         {
             if (_mapData?.Stopbars == null) return false;
-
-            // Find all stopbars that control this lead-on
             var controlling = _mapData.Stopbars
                 .Where(s => s.LeadOnIds != null && s.LeadOnIds.Contains(leadOnId))
                 .ToList();
 
             if (controlling.Count == 0)
             {
-                // If no controlling stopbars explicitly reference this lead-on, default to not active
-                // so the lead-on will render as ON (common fallback behaviour in this UI)
                 return false;
             }
 
-            // Lead-on is considered "stopbar active" only if ALL controlling stopbars are active (raised)
-            // This makes the lead-on behave like an OR gate: any dropped stopbar keeps the lead-on ON.
             return controlling.All(s => s.State);
         }
 
@@ -2043,33 +2305,31 @@ namespace BARS.Windows
                 _panOffset.X = mouseX - bounds.Width / 2 - postZoomX;
                 _panOffset.Y = mouseY - bounds.Height / 2 - postZoomY;
 
-                Invalidate();
+                // Set interaction flag during rapid zooming
+                _isPanningOrZooming = true;
+                _lastZoomTime = DateTime.Now;
+                InvalidateStopbarVisualCache();
+                ThrottledInvalidate();
             }
         }
 
         private void WindSimulationTimer_Tick(object sender, EventArgs e)
         {
-            // Determine global conditions
             int baseDir = _baseWindDirection;
             int baseSpd = Math.Max(0, _baseWindSpeed);
             int baseGust = Math.Max(baseSpd, _baseWindGust);
             bool vrb = _isVariableWind;
 
-            foreach (var windsock in _windsockStates.Keys.ToList())
+            foreach (var kvp in _windsockStates)
             {
-                var s = _windsockStates[windsock];
-
-                // Initialize turbulence factor if default
+                var windsock = kvp.Key;
+                var s = kvp.Value;
                 if (s.TurbulenceFactor <= 0f)
                 {
                     s.TurbulenceFactor = 0.7f + (float)_windRandom.NextDouble() * 0.8f; // 0.7 .. 1.5
                 }
-
-                // Scale of variation based on speed (less at low speeds)
                 float speedScale = baseSpd <= 1 ? 0.15f : Math.Min(1f, baseSpd / 20f); // 0..1
                 float turb = s.TurbulenceFactor;
-
-                // Direction target and step
                 int dirTarget = baseDir;
                 int dirWander = vrb ? _windRandom.Next(-60, 61) : _windRandom.Next(-12, 13);
                 dirWander = (int)(dirWander * turb);
@@ -2081,11 +2341,9 @@ namespace BARS.Windows
                 int newDir = (int)Math.Round(MoveTowardsAngle(s.CurrentDirection, dirTarget, dirStep));
                 newDir = NormalizeDegrees(newDir);
 
-                // Gust logic: transient push towards gust speed
                 DateTime now = DateTime.Now;
                 if (baseGust > baseSpd)
                 {
-                    // chance to (re)trigger a gust event when none active
                     if (!s.GustActive || now >= s.GustUntil)
                     {
                         float gustGap = baseGust - baseSpd;
@@ -2109,13 +2367,9 @@ namespace BARS.Windows
                 {
                     speedTarget = Math.Max(speedTarget, s.GustSpeed);
                 }
-
-                // Speed step depends on turbulence and whether gust is active
                 float baseStep = 0.6f + 1.2f * speedScale; // 0.6..1.8
                 if (s.GustActive) baseStep *= 1.8f; // accelerate during gust
                 baseStep *= turb;
-
-                // Add small random micro-jitter
                 int jitter = _windRandom.Next(-1, 2);
                 int newSpd = (int)Math.Round(MoveTowards(s.CurrentSpeed, speedTarget, baseStep)) + jitter;
                 newSpd = Math.Max(0, newSpd);
@@ -2123,11 +2377,8 @@ namespace BARS.Windows
                 s.CurrentDirection = newDir;
                 s.CurrentSpeed = newSpd;
                 s.LastUpdate = now;
-
-                _windsockStates[windsock] = s;
             }
 
-            // Adjust timer interval dynamically: faster during variable/gusty conditions
             int minIvl = (vrb || _baseWindGust > _baseWindSpeed) ? 400 : 900;
             int maxIvl = (vrb || _baseWindGust > _baseWindSpeed) ? 1100 : 2200;
             _windSimulationTimer.Interval = _windRandom.Next(minIvl, maxIvl);
@@ -2255,14 +2506,12 @@ namespace BARS.Windows
         public int CurrentDirection { get; set; }
         public int CurrentSpeed { get; set; }
 
-        // Gust event state for this windsock
         public bool GustActive { get; set; }
 
         public int GustSpeed { get; set; }
         public DateTime GustUntil { get; set; }
         public DateTime LastUpdate { get; set; }
 
-        // Per-windsock variability
         public float TurbulenceFactor { get; set; }
     }
 }

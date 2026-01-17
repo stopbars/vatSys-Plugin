@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace BARS.Util
 {
@@ -398,6 +399,10 @@ namespace BARS.Util
                 {
                     // Swallow cancellations caused by newer requests.
                 }
+                catch (ObjectDisposedException)
+                {
+                    // Timer was disposed before delay completed; ignore.
+                }
                 catch (Exception ex)
                 {
                     logger.Error($"Snapshot reconcile request failed: {ex.Message}");
@@ -430,13 +435,14 @@ namespace BARS.Util
             }
         }
 
-        // Update stopbar state and send to server
+        // Update stopbar state and send to server (batched into a single packet for primary + lead-ons)
         public async Task UpdateStopbar(Stopbar stopbar, bool forceLeadOnStateFalse = false)
         {
             string objectId;
             bool networkState;
             List<string> leadOnIds;
 
+            // Collect updates and cache them locally under lock
             lock (_updateLock)
             {
                 objectId = stopbar.BARSId;
@@ -445,6 +451,7 @@ namespace BARS.Util
                     logger.Log($"Skipping outbound state for {objectId} because network echo suppression is active");
                     return;
                 }
+
                 networkState = ConvertStopbarStateToNetwork(stopbar);
                 leadOnIds = stopbar.LeadOnIds?.ToList() ?? new List<string>();
                 _localStopbarStates[objectId] = networkState;
@@ -457,35 +464,41 @@ namespace BARS.Util
                 return;
             }
 
-            var packet = new
+            // Build a single batch payload: primary + lead-ons (inverse unless forced false)
+            var updates = new List<StateUpdateDto>
             {
-                type = "STATE_UPDATE",
-                airport = _airport,
-                data = new { objectId, state = networkState }
+                new StateUpdateDto { objectId = objectId, state = networkState }
             };
-            await SendPacket(packet);
-            logger.Log($"Sent stopbar state update for {objectId} (state={networkState}) to BARS server");
 
-            // Separate packet for lead-on if applicable
             if (leadOnIds.Count > 0)
             {
                 foreach (string leadOnId in leadOnIds)
                 {
-                    bool leadOnState = forceLeadOnStateFalse ? false : !networkState; // inverse unless forcing false (initial seed / late assignment)
+                    bool leadOnState = forceLeadOnStateFalse ? false : !networkState;
                     lock (_updateLock)
                     {
                         _localStopbarStates[leadOnId] = leadOnState;
                     }
-                    var leadOnPacket = new
-                    {
-                        type = "STATE_UPDATE",
-                        airport = _airport,
-                        data = new { objectId = leadOnId, state = leadOnState }
-                    };
-                    await SendPacket(leadOnPacket);
-                    logger.Log($"Sent lead-on state update for {leadOnId} (state={leadOnState}) paired with stopbar {objectId}");
+                    updates.Add(new StateUpdateDto { objectId = leadOnId, state = leadOnState });
                 }
             }
+
+            var packet = new
+            {
+                type = "MULTI_STATE_UPDATE",
+                airport = _airport,
+                data = updates
+            };
+
+            await SendPacket(packet);
+            logger.Log($"Sent batched state update ({updates.Count} object(s)) for {objectId} to BARS server");
+        }
+
+        // DTO used for batching outbound state updates
+        private sealed class StateUpdateDto
+        {
+            public string objectId { get; set; }
+            public bool state { get; set; }
         }
 
         private string BuildFriendlyConnectError(int? httpStatus)
@@ -615,6 +628,10 @@ namespace BARS.Util
 
                     case "STATE_UPDATE":
                         ProcessStateUpdate(message);
+                        break;
+
+                    case "MULTI_STATE_UPDATE":
+                        ProcessMultiStateUpdate(message);
                         break;
 
                     case "STATE_SNAPSHOT":
@@ -902,6 +919,131 @@ namespace BARS.Util
             {
                 OnError?.Invoke(this, $"State update processing error: {ex.Message}");
                 logger.Error($"State update processing error: {ex.Message}");
+            }
+        }
+
+        // Process batched state updates from other controllers
+        private async void ProcessMultiStateUpdate(dynamic batchUpdate)
+        {
+            try
+            {
+                // Extract controllerId if present (either alongside data or nested inside)
+                string controllerId = null;
+                try { controllerId = (string)((JToken)batchUpdate)["controllerId"]; } catch { }
+                try { controllerId = controllerId ?? (string)((JToken)batchUpdate["data"])?.Value<string>("controllerId"); } catch { }
+
+                // Small settle delay to align with single update path
+                await Task.Delay(SERVER_UPDATE_DELAY);
+
+                var dataToken = (batchUpdate as JToken)?["data"];
+                if (dataToken == null)
+                {
+                    logger.Error("Multi state update processing error: data payload missing");
+                    return;
+                }
+
+                // Determine the collection of update entries
+                IEnumerable<JToken> entries = null;
+                if (dataToken.Type == JTokenType.Array)
+                {
+                    entries = dataToken.Children();
+                }
+                else if (dataToken.Type == JTokenType.Object)
+                {
+                    var updatesToken = dataToken["updates"] ?? dataToken["objects"] ?? dataToken["items"];
+                    if (updatesToken != null && updatesToken.Type == JTokenType.Array)
+                    {
+                        entries = updatesToken.Children();
+                    }
+                    else
+                    {
+                        // Treat object properties as key/value pairs objectId->state
+                        entries = dataToken.Children();
+                    }
+                }
+
+                if (entries == null)
+                {
+                    logger.Error("Multi state update processing error: data payload not iterable");
+                    return;
+                }
+
+                foreach (var token in entries)
+                {
+                    string objectId = null;
+                    bool? state = null;
+
+                    if (token is JProperty prop)
+                    {
+                        objectId = prop.Name;
+                        state = prop.Value.Type == JTokenType.Boolean ? prop.Value.Value<bool>() : (bool?)null;
+                    }
+                    else if (token is JObject obj)
+                    {
+                        objectId = (string)(obj["objectId"] ?? obj["id"]);
+                        JToken stateToken = obj["state"] ?? obj["value"];
+                        if (stateToken != null && stateToken.Type == JTokenType.Boolean)
+                        {
+                            state = stateToken.Value<bool>();
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(objectId) || state == null)
+                    {
+                        logger.Log("Skipping malformed MULTI_STATE_UPDATE entry");
+                        continue;
+                    }
+
+                    if (!string.IsNullOrEmpty(controllerId) && controllerId == _controllerId)
+                    {
+                        continue; // ignore own echo
+                    }
+
+                    lock (_updateLock) _localStopbarStates[objectId] = state.Value;
+
+                    if (ControllerHandler.IsLeadOnId(_airport, objectId))
+                    {
+                        var leadOnStopbar = ControllerHandler.GetStopbar(_airport, objectId);
+                        if (leadOnStopbar != null)
+                        {
+                            SetStopbarStateFromNetwork(_airport, objectId, state.Value, leadOnStopbar.AutoRaise);
+                            logger.Log($"Applied lead-on state update for {objectId} from controller {controllerId}");
+                        }
+                        continue;
+                    }
+
+                    var all = ControllerHandler.GetStopbarsForAirport(_airport);
+                    bool anyLocals = all.Count > 0;
+                    var primary = all.FirstOrDefault(sb => sb.BARSId == objectId);
+                    if (primary != null)
+                    {
+                        if (primary.State == state.Value)
+                        {
+                            continue;
+                        }
+                        SetStopbarStateFromNetwork(_airport, objectId, state.Value, primary.AutoRaise);
+                        logger.Log($"Received batched state update for stopbar {objectId} from controller {controllerId}");
+                    }
+                    else if (all.Any(sb => sb.LeadOnIds != null && sb.LeadOnIds.Any(id => string.Equals(id, objectId, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        logger.Log($"Received batched lead-on update {objectId} (state={state.Value}) from controller {controllerId} – ignored (legacy path).");
+                    }
+                    else
+                    {
+                        if (anyLocals)
+                        {
+                            logger.Log($"Received batched update for unknown object {objectId} (state={state.Value}) from controller {controllerId} – no action.");
+                        }
+                    }
+                }
+
+                // After burst of external activity, queue a reconciliation snapshot
+                ScheduleSnapshotReconciliation();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(this, $"Multi state update processing error: {ex.Message}");
+                logger.Error($"Multi state update processing error: {ex.Message}");
             }
         }
 

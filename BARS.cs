@@ -50,6 +50,8 @@ namespace BARS
 
             netManager.Initialize(Properties.Settings.Default.APIKey);
 
+            CdnProfiles.WarmCacheAsync();
+
             logger.Log("Starting BARS for vatSys...");
             _ = Start();
         }
@@ -67,6 +69,7 @@ namespace BARS
         {
             if (string.IsNullOrWhiteSpace(icao))
                 return false; string formattedIcao = icao.Trim().ToUpper();
+            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
 
             // Validate supported airports
             if (!SupportedAirports.Contains(formattedIcao))
@@ -98,18 +101,10 @@ namespace BARS
                 config.SyncAirportList();
             }
 
-            List<string> infoList = new List<string>(Network.ControllerInfo ?? Array.Empty<string>());
-            bool hasBars = infoList.Any(s => s != null &&
-                s.IndexOf("BARS", StringComparison.OrdinalIgnoreCase) >= 0);
-
-            if (!hasBars)
+            if (!isLegacy)
             {
-                infoList.Add("BARS in use - vats.im/bars");
+                _ = CdnProfiles.WarmAirportXmlAsync(formattedIcao);
             }
-
-            Network.ControllerInfo = infoList.ToArray();
-
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
 
             MMI.InvokeOnGUI(() =>
             {
