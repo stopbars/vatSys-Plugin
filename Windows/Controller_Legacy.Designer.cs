@@ -1,4 +1,4 @@
-﻿namespace BARS.Windows
+namespace BARS.Windows
 {
     partial class Controller_Legacy
     {
@@ -62,12 +62,66 @@
             this.lbl_s2 = new System.Windows.Forms.Label();
             this.lbl_T_S = new System.Windows.Forms.Label();
             this.lbl_B_S = new System.Windows.Forms.Label();
-            this.pnl_s24_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s24_tri = new System.Windows.Forms.Panel();
-            this.lbl_s24 = new System.Windows.Forms.Label();
+            this.pnl_s31_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s31_tri = new System.Windows.Forms.Panel();
+            this.lbl_s31 = new System.Windows.Forms.Label();
+            this.pnl_s30_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s30_tri = new System.Windows.Forms.Panel();
+            this.lbl_s30 = new System.Windows.Forms.Label();
+            this.pnl_s29_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s29_tri = new System.Windows.Forms.Panel();
+            this.lbl_s29 = new System.Windows.Forms.Label();
+            this.pnl_s28_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s28_tri = new System.Windows.Forms.Panel();
+            this.lbl_s28 = new System.Windows.Forms.Label();
+            this.pnl_s27_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s27_tri = new System.Windows.Forms.Panel();
+            this.lbl_s27 = new System.Windows.Forms.Label();
+            this.pnl_s26_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s26_tri = new System.Windows.Forms.Panel();
+            this.lbl_s26 = new System.Windows.Forms.Label();
+            this.pnl_s10_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s10_tri = new System.Windows.Forms.Panel();
+            this.lbl_s10 = new System.Windows.Forms.Label();
+            this.pnl_s11_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s11_tri = new System.Windows.Forms.Panel();
+            this.lbl_s11 = new System.Windows.Forms.Label();
+            this.pnl_s12_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s12_tri = new System.Windows.Forms.Panel();
+            this.lbl_s12 = new System.Windows.Forms.Label();
+            this.pnl_s13_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s13_tri = new System.Windows.Forms.Panel();
+            this.lbl_s13 = new System.Windows.Forms.Label();
+            this.pnl_s14_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s14_tri = new System.Windows.Forms.Panel();
+            this.lbl_s14 = new System.Windows.Forms.Label();
+            this.pnl_s15_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s15_tri = new System.Windows.Forms.Panel();
+            this.lbl_s15 = new System.Windows.Forms.Label();
+            this.pnl_s7_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s7_tri = new System.Windows.Forms.Panel();
+            this.lbl_s7 = new System.Windows.Forms.Label();
+            this.pnl_s16_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s16_tri = new System.Windows.Forms.Panel();
+            this.lbl_s16 = new System.Windows.Forms.Label();
+            this.pnl_s8_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s8_tri = new System.Windows.Forms.Panel();
+            this.lbl_s8 = new System.Windows.Forms.Label();
+            this.pnl_s9_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s9_tri = new System.Windows.Forms.Panel();
+            this.lbl_s9 = new System.Windows.Forms.Label();
             this.pnl_s23_taxi = new System.Windows.Forms.Panel();
             this.pnl_s23_tri = new System.Windows.Forms.Panel();
             this.lbl_s23 = new System.Windows.Forms.Label();
+            this.pnl_s32_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s32_tri = new System.Windows.Forms.Panel();
+            this.lbl_s32 = new System.Windows.Forms.Label();
+            this.pnl_s24_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s24_tri = new System.Windows.Forms.Panel();
+            this.lbl_s24 = new System.Windows.Forms.Label();
+            this.pnl_s25_taxi = new System.Windows.Forms.Panel();
+            this.pnl_s25_tri = new System.Windows.Forms.Panel();
+            this.lbl_s25 = new System.Windows.Forms.Label();
             this.pnl_s22_taxi = new System.Windows.Forms.Panel();
             this.pnl_s22_tri = new System.Windows.Forms.Panel();
             this.lbl_s22 = new System.Windows.Forms.Label();
@@ -80,66 +134,12 @@
             this.pnl_s19_taxi = new System.Windows.Forms.Panel();
             this.pnl_s19_tri = new System.Windows.Forms.Panel();
             this.lbl_s19 = new System.Windows.Forms.Label();
-            this.pnl_s7_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s7_tri = new System.Windows.Forms.Panel();
-            this.lbl_s7 = new System.Windows.Forms.Label();
-            this.pnl_s8_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s8_tri = new System.Windows.Forms.Panel();
-            this.lbl_s8 = new System.Windows.Forms.Label();
-            this.pnl_s9_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s9_tri = new System.Windows.Forms.Panel();
-            this.lbl_s9 = new System.Windows.Forms.Label();
-            this.pnl_s10_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s10_tri = new System.Windows.Forms.Panel();
-            this.lbl_s10 = new System.Windows.Forms.Label();
-            this.pnl_s11_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s11_tri = new System.Windows.Forms.Panel();
-            this.lbl_s11 = new System.Windows.Forms.Label();
-            this.pnl_s12_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s12_tri = new System.Windows.Forms.Panel();
-            this.lbl_s12 = new System.Windows.Forms.Label();
-            this.pnl_s25_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s25_tri = new System.Windows.Forms.Panel();
-            this.lbl_s25 = new System.Windows.Forms.Label();
-            this.pnl_s26_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s26_tri = new System.Windows.Forms.Panel();
-            this.lbl_s26 = new System.Windows.Forms.Label();
-            this.pnl_s27_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s27_tri = new System.Windows.Forms.Panel();
-            this.lbl_s27 = new System.Windows.Forms.Label();
-            this.pnl_s28_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s28_tri = new System.Windows.Forms.Panel();
-            this.lbl_s28 = new System.Windows.Forms.Label();
-            this.pnl_s29_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s29_tri = new System.Windows.Forms.Panel();
-            this.lbl_s29 = new System.Windows.Forms.Label();
-            this.pnl_s30_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s30_tri = new System.Windows.Forms.Panel();
-            this.lbl_s30 = new System.Windows.Forms.Label();
-            this.pnl_s31_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s31_tri = new System.Windows.Forms.Panel();
-            this.lbl_s31 = new System.Windows.Forms.Label();
-            this.pnl_s32_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s32_tri = new System.Windows.Forms.Panel();
-            this.lbl_s32 = new System.Windows.Forms.Label();
             this.pnl_s18_taxi = new System.Windows.Forms.Panel();
             this.pnl_s18_tri = new System.Windows.Forms.Panel();
             this.lbl_s18 = new System.Windows.Forms.Label();
             this.pnl_s17_taxi = new System.Windows.Forms.Panel();
             this.pnl_s17_tri = new System.Windows.Forms.Panel();
             this.lbl_s17 = new System.Windows.Forms.Label();
-            this.pnl_s16_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s16_tri = new System.Windows.Forms.Panel();
-            this.lbl_s16 = new System.Windows.Forms.Label();
-            this.pnl_s15_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s15_tri = new System.Windows.Forms.Panel();
-            this.lbl_s15 = new System.Windows.Forms.Label();
-            this.pnl_s14_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s14_tri = new System.Windows.Forms.Panel();
-            this.lbl_s14 = new System.Windows.Forms.Label();
-            this.pnl_s13_taxi = new System.Windows.Forms.Panel();
-            this.pnl_s13_tri = new System.Windows.Forms.Panel();
-            this.lbl_s13 = new System.Windows.Forms.Label();
             this.pnl_legacy.SuspendLayout();
             this.pnl_1_runway.SuspendLayout();
             this.pnl_2_runway.SuspendLayout();
@@ -149,32 +149,32 @@
             this.pnl_s4_taxi.SuspendLayout();
             this.pnl_s3_taxi.SuspendLayout();
             this.pnl_s2_taxi.SuspendLayout();
-            this.pnl_s24_taxi.SuspendLayout();
+            this.pnl_s31_taxi.SuspendLayout();
+            this.pnl_s30_taxi.SuspendLayout();
+            this.pnl_s29_taxi.SuspendLayout();
+            this.pnl_s28_taxi.SuspendLayout();
+            this.pnl_s27_taxi.SuspendLayout();
+            this.pnl_s26_taxi.SuspendLayout();
+            this.pnl_s10_taxi.SuspendLayout();
+            this.pnl_s11_taxi.SuspendLayout();
+            this.pnl_s12_taxi.SuspendLayout();
+            this.pnl_s13_taxi.SuspendLayout();
+            this.pnl_s14_taxi.SuspendLayout();
+            this.pnl_s15_taxi.SuspendLayout();
+            this.pnl_s7_taxi.SuspendLayout();
+            this.pnl_s16_taxi.SuspendLayout();
+            this.pnl_s8_taxi.SuspendLayout();
+            this.pnl_s9_taxi.SuspendLayout();
             this.pnl_s23_taxi.SuspendLayout();
+            this.pnl_s32_taxi.SuspendLayout();
+            this.pnl_s24_taxi.SuspendLayout();
+            this.pnl_s25_taxi.SuspendLayout();
             this.pnl_s22_taxi.SuspendLayout();
             this.pnl_s21_taxi.SuspendLayout();
             this.pnl_s20_taxi.SuspendLayout();
             this.pnl_s19_taxi.SuspendLayout();
-            this.pnl_s7_taxi.SuspendLayout();
-            this.pnl_s8_taxi.SuspendLayout();
-            this.pnl_s9_taxi.SuspendLayout();
-            this.pnl_s10_taxi.SuspendLayout();
-            this.pnl_s11_taxi.SuspendLayout();
-            this.pnl_s12_taxi.SuspendLayout();
-            this.pnl_s25_taxi.SuspendLayout();
-            this.pnl_s26_taxi.SuspendLayout();
-            this.pnl_s27_taxi.SuspendLayout();
-            this.pnl_s28_taxi.SuspendLayout();
-            this.pnl_s29_taxi.SuspendLayout();
-            this.pnl_s30_taxi.SuspendLayout();
-            this.pnl_s31_taxi.SuspendLayout();
-            this.pnl_s32_taxi.SuspendLayout();
             this.pnl_s18_taxi.SuspendLayout();
             this.pnl_s17_taxi.SuspendLayout();
-            this.pnl_s16_taxi.SuspendLayout();
-            this.pnl_s15_taxi.SuspendLayout();
-            this.pnl_s14_taxi.SuspendLayout();
-            this.pnl_s13_taxi.SuspendLayout();
             this.SuspendLayout();
             // 
             // pnl_legacy
@@ -196,32 +196,32 @@
             this.pnl_legacy.Controls.Add(this.pnl_s2_taxi);
             this.pnl_legacy.Controls.Add(this.lbl_T_S);
             this.pnl_legacy.Controls.Add(this.lbl_B_S);
-            this.pnl_legacy.Controls.Add(this.pnl_s24_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s31_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s30_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s29_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s28_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s27_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s26_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s10_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s11_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s12_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s13_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s14_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s15_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s7_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s16_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s8_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s9_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s23_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s32_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s24_taxi);
+            this.pnl_legacy.Controls.Add(this.pnl_s25_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s22_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s21_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s20_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s19_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s7_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s8_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s9_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s10_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s11_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s12_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s25_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s26_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s27_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s28_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s29_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s30_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s31_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s32_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s18_taxi);
             this.pnl_legacy.Controls.Add(this.pnl_s17_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s16_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s15_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s14_taxi);
-            this.pnl_legacy.Controls.Add(this.pnl_s13_taxi);
             this.pnl_legacy.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnl_legacy.Location = new System.Drawing.Point(0, 0);
             this.pnl_legacy.Name = "pnl_legacy";
@@ -630,365 +630,245 @@
             this.lbl_B_S.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.lbl_B_S.Visible = false;
             // 
-            // pnl_s24_taxi
+            // pnl_s31_taxi
             // 
-            this.pnl_s24_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s24_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s24_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s24_taxi.BackgroundImage")));
-            this.pnl_s24_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s24_taxi.Controls.Add(this.pnl_s24_tri);
-            this.pnl_s24_taxi.Controls.Add(this.lbl_s24);
-            this.pnl_s24_taxi.Location = new System.Drawing.Point(955, 296);
-            this.pnl_s24_taxi.Name = "pnl_s24_taxi";
-            this.pnl_s24_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s24_taxi.TabIndex = 39;
-            this.pnl_s24_taxi.Visible = false;
+            this.pnl_s31_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s31_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s31_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s31_taxi.BackgroundImage")));
+            this.pnl_s31_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s31_taxi.Controls.Add(this.pnl_s31_tri);
+            this.pnl_s31_taxi.Controls.Add(this.lbl_s31);
+            this.pnl_s31_taxi.Location = new System.Drawing.Point(955, 296);
+            this.pnl_s31_taxi.Name = "pnl_s31_taxi";
+            this.pnl_s31_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s31_taxi.TabIndex = 39;
+            this.pnl_s31_taxi.Visible = false;
             // 
-            // pnl_s24_tri
+            // pnl_s31_tri
             // 
-            this.pnl_s24_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s24_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s24_tri.BackgroundImage")));
-            this.pnl_s24_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s24_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s24_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s24_tri.Name = "pnl_s24_tri";
-            this.pnl_s24_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s24_tri.TabIndex = 6;
-            this.pnl_s24_tri.Tag = "B";
+            this.pnl_s31_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s31_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s31_tri.BackgroundImage")));
+            this.pnl_s31_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s31_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s31_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s31_tri.Name = "pnl_s31_tri";
+            this.pnl_s31_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s31_tri.TabIndex = 6;
+            this.pnl_s31_tri.Tag = "B";
             // 
-            // lbl_s24
+            // lbl_s31
             // 
-            this.lbl_s24.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s24.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s24.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s24.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s24.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s24.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s24.Name = "lbl_s24";
-            this.lbl_s24.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s24.TabIndex = 5;
-            this.lbl_s24.Text = "A6";
-            this.lbl_s24.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s31.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s31.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s31.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s31.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s31.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s31.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s31.Name = "lbl_s31";
+            this.lbl_s31.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s31.TabIndex = 5;
+            this.lbl_s31.Text = "A6";
+            this.lbl_s31.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s23_taxi
+            // pnl_s30_taxi
             // 
-            this.pnl_s23_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s23_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s23_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s23_taxi.BackgroundImage")));
-            this.pnl_s23_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s23_taxi.Controls.Add(this.pnl_s23_tri);
-            this.pnl_s23_taxi.Controls.Add(this.lbl_s23);
-            this.pnl_s23_taxi.Location = new System.Drawing.Point(899, 296);
-            this.pnl_s23_taxi.Name = "pnl_s23_taxi";
-            this.pnl_s23_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s23_taxi.TabIndex = 37;
-            this.pnl_s23_taxi.Visible = false;
+            this.pnl_s30_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s30_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s30_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s30_taxi.BackgroundImage")));
+            this.pnl_s30_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s30_taxi.Controls.Add(this.pnl_s30_tri);
+            this.pnl_s30_taxi.Controls.Add(this.lbl_s30);
+            this.pnl_s30_taxi.Location = new System.Drawing.Point(899, 296);
+            this.pnl_s30_taxi.Name = "pnl_s30_taxi";
+            this.pnl_s30_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s30_taxi.TabIndex = 37;
+            this.pnl_s30_taxi.Visible = false;
             // 
-            // pnl_s23_tri
+            // pnl_s30_tri
             // 
-            this.pnl_s23_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s23_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s23_tri.BackgroundImage")));
-            this.pnl_s23_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s23_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s23_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s23_tri.Name = "pnl_s23_tri";
-            this.pnl_s23_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s23_tri.TabIndex = 6;
-            this.pnl_s23_tri.Tag = "B";
+            this.pnl_s30_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s30_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s30_tri.BackgroundImage")));
+            this.pnl_s30_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s30_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s30_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s30_tri.Name = "pnl_s30_tri";
+            this.pnl_s30_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s30_tri.TabIndex = 6;
+            this.pnl_s30_tri.Tag = "B";
             // 
-            // lbl_s23
+            // lbl_s30
             // 
-            this.lbl_s23.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s23.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s23.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s23.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s23.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s23.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s23.Name = "lbl_s23";
-            this.lbl_s23.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s23.TabIndex = 5;
-            this.lbl_s23.Text = "A6";
-            this.lbl_s23.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s30.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s30.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s30.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s30.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s30.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s30.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s30.Name = "lbl_s30";
+            this.lbl_s30.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s30.TabIndex = 5;
+            this.lbl_s30.Text = "A6";
+            this.lbl_s30.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s22_taxi
+            // pnl_s29_taxi
             // 
-            this.pnl_s22_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s22_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s22_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s22_taxi.BackgroundImage")));
-            this.pnl_s22_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s22_taxi.Controls.Add(this.pnl_s22_tri);
-            this.pnl_s22_taxi.Controls.Add(this.lbl_s22);
-            this.pnl_s22_taxi.Location = new System.Drawing.Point(843, 296);
-            this.pnl_s22_taxi.Name = "pnl_s22_taxi";
-            this.pnl_s22_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s22_taxi.TabIndex = 35;
-            this.pnl_s22_taxi.Visible = false;
+            this.pnl_s29_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s29_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s29_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s29_taxi.BackgroundImage")));
+            this.pnl_s29_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s29_taxi.Controls.Add(this.pnl_s29_tri);
+            this.pnl_s29_taxi.Controls.Add(this.lbl_s29);
+            this.pnl_s29_taxi.Location = new System.Drawing.Point(843, 296);
+            this.pnl_s29_taxi.Name = "pnl_s29_taxi";
+            this.pnl_s29_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s29_taxi.TabIndex = 35;
+            this.pnl_s29_taxi.Visible = false;
             // 
-            // pnl_s22_tri
+            // pnl_s29_tri
             // 
-            this.pnl_s22_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s22_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s22_tri.BackgroundImage")));
-            this.pnl_s22_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s22_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s22_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s22_tri.Name = "pnl_s22_tri";
-            this.pnl_s22_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s22_tri.TabIndex = 6;
-            this.pnl_s22_tri.Tag = "B";
+            this.pnl_s29_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s29_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s29_tri.BackgroundImage")));
+            this.pnl_s29_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s29_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s29_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s29_tri.Name = "pnl_s29_tri";
+            this.pnl_s29_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s29_tri.TabIndex = 6;
+            this.pnl_s29_tri.Tag = "B";
             // 
-            // lbl_s22
+            // lbl_s29
             // 
-            this.lbl_s22.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s22.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s22.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s22.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s22.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s22.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s22.Name = "lbl_s22";
-            this.lbl_s22.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s22.TabIndex = 5;
-            this.lbl_s22.Text = "A6";
-            this.lbl_s22.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s29.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s29.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s29.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s29.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s29.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s29.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s29.Name = "lbl_s29";
+            this.lbl_s29.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s29.TabIndex = 5;
+            this.lbl_s29.Text = "A6";
+            this.lbl_s29.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s21_taxi
+            // pnl_s28_taxi
             // 
-            this.pnl_s21_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s21_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s21_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s21_taxi.BackgroundImage")));
-            this.pnl_s21_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s21_taxi.Controls.Add(this.pnl_s21_tri);
-            this.pnl_s21_taxi.Controls.Add(this.lbl_s21);
-            this.pnl_s21_taxi.Location = new System.Drawing.Point(787, 296);
-            this.pnl_s21_taxi.Name = "pnl_s21_taxi";
-            this.pnl_s21_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s21_taxi.TabIndex = 33;
-            this.pnl_s21_taxi.Visible = false;
+            this.pnl_s28_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s28_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s28_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s28_taxi.BackgroundImage")));
+            this.pnl_s28_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s28_taxi.Controls.Add(this.pnl_s28_tri);
+            this.pnl_s28_taxi.Controls.Add(this.lbl_s28);
+            this.pnl_s28_taxi.Location = new System.Drawing.Point(787, 296);
+            this.pnl_s28_taxi.Name = "pnl_s28_taxi";
+            this.pnl_s28_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s28_taxi.TabIndex = 33;
+            this.pnl_s28_taxi.Visible = false;
             // 
-            // pnl_s21_tri
+            // pnl_s28_tri
             // 
-            this.pnl_s21_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s21_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s21_tri.BackgroundImage")));
-            this.pnl_s21_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s21_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s21_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s21_tri.Name = "pnl_s21_tri";
-            this.pnl_s21_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s21_tri.TabIndex = 6;
-            this.pnl_s21_tri.Tag = "B";
+            this.pnl_s28_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s28_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s28_tri.BackgroundImage")));
+            this.pnl_s28_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s28_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s28_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s28_tri.Name = "pnl_s28_tri";
+            this.pnl_s28_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s28_tri.TabIndex = 6;
+            this.pnl_s28_tri.Tag = "B";
             // 
-            // lbl_s21
+            // lbl_s28
             // 
-            this.lbl_s21.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s21.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s21.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s21.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s21.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s21.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s21.Name = "lbl_s21";
-            this.lbl_s21.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s21.TabIndex = 5;
-            this.lbl_s21.Text = "A6";
-            this.lbl_s21.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s28.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s28.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s28.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s28.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s28.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s28.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s28.Name = "lbl_s28";
+            this.lbl_s28.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s28.TabIndex = 5;
+            this.lbl_s28.Text = "A6";
+            this.lbl_s28.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s20_taxi
+            // pnl_s27_taxi
             // 
-            this.pnl_s20_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s20_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s20_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s20_taxi.BackgroundImage")));
-            this.pnl_s20_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s20_taxi.Controls.Add(this.pnl_s20_tri);
-            this.pnl_s20_taxi.Controls.Add(this.lbl_s20);
-            this.pnl_s20_taxi.Location = new System.Drawing.Point(731, 296);
-            this.pnl_s20_taxi.Name = "pnl_s20_taxi";
-            this.pnl_s20_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s20_taxi.TabIndex = 31;
-            this.pnl_s20_taxi.Visible = false;
+            this.pnl_s27_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s27_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s27_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s27_taxi.BackgroundImage")));
+            this.pnl_s27_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s27_taxi.Controls.Add(this.pnl_s27_tri);
+            this.pnl_s27_taxi.Controls.Add(this.lbl_s27);
+            this.pnl_s27_taxi.Location = new System.Drawing.Point(731, 296);
+            this.pnl_s27_taxi.Name = "pnl_s27_taxi";
+            this.pnl_s27_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s27_taxi.TabIndex = 31;
+            this.pnl_s27_taxi.Visible = false;
             // 
-            // pnl_s20_tri
+            // pnl_s27_tri
             // 
-            this.pnl_s20_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s20_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s20_tri.BackgroundImage")));
-            this.pnl_s20_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s20_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s20_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s20_tri.Name = "pnl_s20_tri";
-            this.pnl_s20_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s20_tri.TabIndex = 6;
-            this.pnl_s20_tri.Tag = "B";
+            this.pnl_s27_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s27_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s27_tri.BackgroundImage")));
+            this.pnl_s27_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s27_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s27_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s27_tri.Name = "pnl_s27_tri";
+            this.pnl_s27_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s27_tri.TabIndex = 6;
+            this.pnl_s27_tri.Tag = "B";
             // 
-            // lbl_s20
+            // lbl_s27
             // 
-            this.lbl_s20.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s20.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s20.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s20.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s20.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s20.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s20.Name = "lbl_s20";
-            this.lbl_s20.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s20.TabIndex = 5;
-            this.lbl_s20.Text = "A6";
-            this.lbl_s20.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s27.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s27.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s27.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s27.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s27.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s27.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s27.Name = "lbl_s27";
+            this.lbl_s27.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s27.TabIndex = 5;
+            this.lbl_s27.Text = "A6";
+            this.lbl_s27.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s19_taxi
+            // pnl_s26_taxi
             // 
-            this.pnl_s19_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s19_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s19_taxi.BackgroundImage = global::BARS.Properties.Resources.LeadOn;
-            this.pnl_s19_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s19_taxi.Controls.Add(this.pnl_s19_tri);
-            this.pnl_s19_taxi.Controls.Add(this.lbl_s19);
-            this.pnl_s19_taxi.Location = new System.Drawing.Point(675, 296);
-            this.pnl_s19_taxi.Name = "pnl_s19_taxi";
-            this.pnl_s19_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s19_taxi.TabIndex = 29;
-            this.pnl_s19_taxi.Visible = false;
+            this.pnl_s26_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s26_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s26_taxi.BackgroundImage = global::BARS.Properties.Resources.LeadOn;
+            this.pnl_s26_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s26_taxi.Controls.Add(this.pnl_s26_tri);
+            this.pnl_s26_taxi.Controls.Add(this.lbl_s26);
+            this.pnl_s26_taxi.Location = new System.Drawing.Point(675, 296);
+            this.pnl_s26_taxi.Name = "pnl_s26_taxi";
+            this.pnl_s26_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s26_taxi.TabIndex = 29;
+            this.pnl_s26_taxi.Visible = false;
             // 
-            // pnl_s19_tri
+            // pnl_s26_tri
             // 
-            this.pnl_s19_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s19_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s19_tri.BackgroundImage")));
-            this.pnl_s19_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s19_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s19_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s19_tri.Name = "pnl_s19_tri";
-            this.pnl_s19_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s19_tri.TabIndex = 6;
-            this.pnl_s19_tri.Tag = "B";
+            this.pnl_s26_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s26_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s26_tri.BackgroundImage")));
+            this.pnl_s26_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s26_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s26_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s26_tri.Name = "pnl_s26_tri";
+            this.pnl_s26_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s26_tri.TabIndex = 6;
+            this.pnl_s26_tri.Tag = "B";
             // 
-            // lbl_s19
+            // lbl_s26
             // 
-            this.lbl_s19.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s19.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s19.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s19.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s19.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s19.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s19.Name = "lbl_s19";
-            this.lbl_s19.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s19.TabIndex = 5;
-            this.lbl_s19.Text = "A6";
-            this.lbl_s19.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s7_taxi
-            // 
-            this.pnl_s7_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s7_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s7_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s7_taxi.BackgroundImage")));
-            this.pnl_s7_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s7_taxi.Controls.Add(this.pnl_s7_tri);
-            this.pnl_s7_taxi.Controls.Add(this.lbl_s7);
-            this.pnl_s7_taxi.Location = new System.Drawing.Point(675, 121);
-            this.pnl_s7_taxi.Name = "pnl_s7_taxi";
-            this.pnl_s7_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s7_taxi.TabIndex = 28;
-            this.pnl_s7_taxi.Visible = false;
-            // 
-            // pnl_s7_tri
-            // 
-            this.pnl_s7_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s7_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s7_tri.BackgroundImage")));
-            this.pnl_s7_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s7_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s7_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s7_tri.Name = "pnl_s7_tri";
-            this.pnl_s7_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s7_tri.TabIndex = 6;
-            this.pnl_s7_tri.Tag = "T";
-            // 
-            // lbl_s7
-            // 
-            this.lbl_s7.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s7.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s7.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s7.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s7.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s7.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s7.Name = "lbl_s7";
-            this.lbl_s7.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s7.TabIndex = 5;
-            this.lbl_s7.Text = "A6";
-            this.lbl_s7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s8_taxi
-            // 
-            this.pnl_s8_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s8_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s8_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s8_taxi.BackgroundImage")));
-            this.pnl_s8_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s8_taxi.Controls.Add(this.pnl_s8_tri);
-            this.pnl_s8_taxi.Controls.Add(this.lbl_s8);
-            this.pnl_s8_taxi.Location = new System.Drawing.Point(731, 121);
-            this.pnl_s8_taxi.Name = "pnl_s8_taxi";
-            this.pnl_s8_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s8_taxi.TabIndex = 26;
-            this.pnl_s8_taxi.Visible = false;
-            // 
-            // pnl_s8_tri
-            // 
-            this.pnl_s8_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s8_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s8_tri.BackgroundImage")));
-            this.pnl_s8_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s8_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s8_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s8_tri.Name = "pnl_s8_tri";
-            this.pnl_s8_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s8_tri.TabIndex = 6;
-            this.pnl_s8_tri.Tag = "T";
-            // 
-            // lbl_s8
-            // 
-            this.lbl_s8.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s8.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s8.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s8.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s8.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s8.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s8.Name = "lbl_s8";
-            this.lbl_s8.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s8.TabIndex = 5;
-            this.lbl_s8.Text = "A6";
-            this.lbl_s8.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s9_taxi
-            // 
-            this.pnl_s9_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s9_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s9_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s9_taxi.BackgroundImage")));
-            this.pnl_s9_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s9_taxi.Controls.Add(this.pnl_s9_tri);
-            this.pnl_s9_taxi.Controls.Add(this.lbl_s9);
-            this.pnl_s9_taxi.Location = new System.Drawing.Point(787, 121);
-            this.pnl_s9_taxi.Name = "pnl_s9_taxi";
-            this.pnl_s9_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s9_taxi.TabIndex = 24;
-            this.pnl_s9_taxi.Visible = false;
-            // 
-            // pnl_s9_tri
-            // 
-            this.pnl_s9_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s9_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s9_tri.BackgroundImage")));
-            this.pnl_s9_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s9_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s9_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s9_tri.Name = "pnl_s9_tri";
-            this.pnl_s9_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s9_tri.TabIndex = 6;
-            this.pnl_s9_tri.Tag = "T";
-            // 
-            // lbl_s9
-            // 
-            this.lbl_s9.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s9.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s9.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s9.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s9.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s9.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s9.Name = "lbl_s9";
-            this.lbl_s9.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s9.TabIndex = 5;
-            this.lbl_s9.Text = "A6";
-            this.lbl_s9.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s26.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s26.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s26.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s26.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s26.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s26.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s26.Name = "lbl_s26";
+            this.lbl_s26.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s26.TabIndex = 5;
+            this.lbl_s26.Text = "A6";
+            this.lbl_s26.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // pnl_s10_taxi
             // 
@@ -998,10 +878,10 @@
             this.pnl_s10_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s10_taxi.Controls.Add(this.pnl_s10_tri);
             this.pnl_s10_taxi.Controls.Add(this.lbl_s10);
-            this.pnl_s10_taxi.Location = new System.Drawing.Point(843, 121);
+            this.pnl_s10_taxi.Location = new System.Drawing.Point(675, 121);
             this.pnl_s10_taxi.Name = "pnl_s10_taxi";
             this.pnl_s10_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s10_taxi.TabIndex = 22;
+            this.pnl_s10_taxi.TabIndex = 28;
             this.pnl_s10_taxi.Visible = false;
             // 
             // pnl_s10_tri
@@ -1038,10 +918,10 @@
             this.pnl_s11_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s11_taxi.Controls.Add(this.pnl_s11_tri);
             this.pnl_s11_taxi.Controls.Add(this.lbl_s11);
-            this.pnl_s11_taxi.Location = new System.Drawing.Point(899, 121);
+            this.pnl_s11_taxi.Location = new System.Drawing.Point(731, 121);
             this.pnl_s11_taxi.Name = "pnl_s11_taxi";
             this.pnl_s11_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s11_taxi.TabIndex = 20;
+            this.pnl_s11_taxi.TabIndex = 26;
             this.pnl_s11_taxi.Visible = false;
             // 
             // pnl_s11_tri
@@ -1078,10 +958,10 @@
             this.pnl_s12_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s12_taxi.Controls.Add(this.pnl_s12_tri);
             this.pnl_s12_taxi.Controls.Add(this.lbl_s12);
-            this.pnl_s12_taxi.Location = new System.Drawing.Point(955, 121);
+            this.pnl_s12_taxi.Location = new System.Drawing.Point(787, 121);
             this.pnl_s12_taxi.Name = "pnl_s12_taxi";
             this.pnl_s12_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s12_taxi.TabIndex = 18;
+            this.pnl_s12_taxi.TabIndex = 24;
             this.pnl_s12_taxi.Visible = false;
             // 
             // pnl_s12_tri
@@ -1110,271 +990,315 @@
             this.lbl_s12.Text = "A6";
             this.lbl_s12.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s25_taxi
+            // pnl_s13_taxi
             // 
-            this.pnl_s25_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s25_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s25_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s25_taxi.Controls.Add(this.pnl_s25_tri);
-            this.pnl_s25_taxi.Controls.Add(this.lbl_s25);
-            this.pnl_s25_taxi.Location = new System.Drawing.Point(352, 121);
-            this.pnl_s25_taxi.Name = "pnl_s25_taxi";
-            this.pnl_s25_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s25_taxi.TabIndex = 43;
-            this.pnl_s25_taxi.Visible = false;
+            this.pnl_s13_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s13_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s13_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s13_taxi.BackgroundImage")));
+            this.pnl_s13_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s13_taxi.Controls.Add(this.pnl_s13_tri);
+            this.pnl_s13_taxi.Controls.Add(this.lbl_s13);
+            this.pnl_s13_taxi.Location = new System.Drawing.Point(843, 121);
+            this.pnl_s13_taxi.Name = "pnl_s13_taxi";
+            this.pnl_s13_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s13_taxi.TabIndex = 22;
+            this.pnl_s13_taxi.Visible = false;
             // 
-            // pnl_s25_tri
+            // pnl_s13_tri
             // 
-            this.pnl_s25_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s25_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s25_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s25_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s25_tri.Name = "pnl_s25_tri";
-            this.pnl_s25_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s25_tri.TabIndex = 6;
-            this.pnl_s25_tri.Tag = "T";
+            this.pnl_s13_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s13_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s13_tri.BackgroundImage")));
+            this.pnl_s13_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s13_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s13_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s13_tri.Name = "pnl_s13_tri";
+            this.pnl_s13_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s13_tri.TabIndex = 6;
+            this.pnl_s13_tri.Tag = "T";
             // 
-            // lbl_s25
+            // lbl_s13
             // 
-            this.lbl_s25.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s25.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s25.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s25.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s25.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s25.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s25.Name = "lbl_s25";
-            this.lbl_s25.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s25.TabIndex = 5;
-            this.lbl_s25.Text = "A6";
-            this.lbl_s25.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s13.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s13.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s13.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s13.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s13.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s13.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s13.Name = "lbl_s13";
+            this.lbl_s13.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s13.TabIndex = 5;
+            this.lbl_s13.Text = "A6";
+            this.lbl_s13.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s26_taxi
+            // pnl_s14_taxi
             // 
-            this.pnl_s26_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s26_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s26_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s26_taxi.Controls.Add(this.pnl_s26_tri);
-            this.pnl_s26_taxi.Controls.Add(this.lbl_s26);
-            this.pnl_s26_taxi.Location = new System.Drawing.Point(1011, 121);
-            this.pnl_s26_taxi.Name = "pnl_s26_taxi";
-            this.pnl_s26_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s26_taxi.TabIndex = 44;
-            this.pnl_s26_taxi.Visible = false;
+            this.pnl_s14_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s14_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s14_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s14_taxi.BackgroundImage")));
+            this.pnl_s14_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s14_taxi.Controls.Add(this.pnl_s14_tri);
+            this.pnl_s14_taxi.Controls.Add(this.lbl_s14);
+            this.pnl_s14_taxi.Location = new System.Drawing.Point(899, 121);
+            this.pnl_s14_taxi.Name = "pnl_s14_taxi";
+            this.pnl_s14_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s14_taxi.TabIndex = 20;
+            this.pnl_s14_taxi.Visible = false;
             // 
-            // pnl_s26_tri
+            // pnl_s14_tri
             // 
-            this.pnl_s26_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s26_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s26_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s26_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s26_tri.Name = "pnl_s26_tri";
-            this.pnl_s26_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s26_tri.TabIndex = 6;
-            this.pnl_s26_tri.Tag = "T";
+            this.pnl_s14_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s14_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s14_tri.BackgroundImage")));
+            this.pnl_s14_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s14_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s14_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s14_tri.Name = "pnl_s14_tri";
+            this.pnl_s14_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s14_tri.TabIndex = 6;
+            this.pnl_s14_tri.Tag = "T";
             // 
-            // lbl_s26
+            // lbl_s14
             // 
-            this.lbl_s26.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s26.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s26.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s26.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s26.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s26.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s26.Name = "lbl_s26";
-            this.lbl_s26.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s26.TabIndex = 5;
-            this.lbl_s26.Text = "A6";
-            this.lbl_s26.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s14.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s14.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s14.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s14.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s14.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s14.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s14.Name = "lbl_s14";
+            this.lbl_s14.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s14.TabIndex = 5;
+            this.lbl_s14.Text = "A6";
+            this.lbl_s14.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s27_taxi
+            // pnl_s15_taxi
             // 
-            this.pnl_s27_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s27_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s27_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s27_taxi.Controls.Add(this.pnl_s27_tri);
-            this.pnl_s27_taxi.Controls.Add(this.lbl_s27);
-            this.pnl_s27_taxi.Location = new System.Drawing.Point(408, 121);
-            this.pnl_s27_taxi.Name = "pnl_s27_taxi";
-            this.pnl_s27_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s27_taxi.TabIndex = 50;
-            this.pnl_s27_taxi.Visible = false;
+            this.pnl_s15_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s15_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s15_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s15_taxi.BackgroundImage")));
+            this.pnl_s15_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s15_taxi.Controls.Add(this.pnl_s15_tri);
+            this.pnl_s15_taxi.Controls.Add(this.lbl_s15);
+            this.pnl_s15_taxi.Location = new System.Drawing.Point(955, 121);
+            this.pnl_s15_taxi.Name = "pnl_s15_taxi";
+            this.pnl_s15_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s15_taxi.TabIndex = 18;
+            this.pnl_s15_taxi.Visible = false;
             // 
-            // pnl_s27_tri
+            // pnl_s15_tri
             // 
-            this.pnl_s27_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s27_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s27_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s27_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s27_tri.Name = "pnl_s27_tri";
-            this.pnl_s27_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s27_tri.TabIndex = 6;
-            this.pnl_s27_tri.Tag = "T";
+            this.pnl_s15_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s15_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s15_tri.BackgroundImage")));
+            this.pnl_s15_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s15_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s15_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s15_tri.Name = "pnl_s15_tri";
+            this.pnl_s15_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s15_tri.TabIndex = 6;
+            this.pnl_s15_tri.Tag = "T";
             // 
-            // lbl_s27
+            // lbl_s15
             // 
-            this.lbl_s27.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s27.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s27.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s27.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s27.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s27.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s27.Name = "lbl_s27";
-            this.lbl_s27.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s27.TabIndex = 5;
-            this.lbl_s27.Text = "A6";
-            this.lbl_s27.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s15.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s15.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s15.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s15.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s15.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s15.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s15.Name = "lbl_s15";
+            this.lbl_s15.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s15.TabIndex = 5;
+            this.lbl_s15.Text = "A6";
+            this.lbl_s15.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s28_taxi
+            // pnl_s7_taxi
             // 
-            this.pnl_s28_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s28_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s28_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s28_taxi.Controls.Add(this.pnl_s28_tri);
-            this.pnl_s28_taxi.Controls.Add(this.lbl_s28);
-            this.pnl_s28_taxi.Location = new System.Drawing.Point(619, 121);
-            this.pnl_s28_taxi.Name = "pnl_s28_taxi";
-            this.pnl_s28_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s28_taxi.TabIndex = 45;
-            this.pnl_s28_taxi.Visible = false;
+            this.pnl_s7_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s7_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s7_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s7_taxi.Controls.Add(this.pnl_s7_tri);
+            this.pnl_s7_taxi.Controls.Add(this.lbl_s7);
+            this.pnl_s7_taxi.Location = new System.Drawing.Point(352, 121);
+            this.pnl_s7_taxi.Name = "pnl_s7_taxi";
+            this.pnl_s7_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s7_taxi.TabIndex = 43;
+            this.pnl_s7_taxi.Visible = false;
             // 
-            // pnl_s28_tri
+            // pnl_s7_tri
             // 
-            this.pnl_s28_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s28_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s28_tri.Dock = System.Windows.Forms.DockStyle.Top;
-            this.pnl_s28_tri.Location = new System.Drawing.Point(0, 40);
-            this.pnl_s28_tri.Name = "pnl_s28_tri";
-            this.pnl_s28_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s28_tri.TabIndex = 6;
-            this.pnl_s28_tri.Tag = "T";
+            this.pnl_s7_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s7_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s7_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s7_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s7_tri.Name = "pnl_s7_tri";
+            this.pnl_s7_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s7_tri.TabIndex = 6;
+            this.pnl_s7_tri.Tag = "T";
             // 
-            // lbl_s28
+            // lbl_s7
             // 
-            this.lbl_s28.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s28.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s28.Dock = System.Windows.Forms.DockStyle.Top;
-            this.lbl_s28.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s28.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s28.Location = new System.Drawing.Point(0, 0);
-            this.lbl_s28.Name = "lbl_s28";
-            this.lbl_s28.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s28.TabIndex = 5;
-            this.lbl_s28.Text = "A6";
-            this.lbl_s28.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s7.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s7.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s7.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s7.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s7.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s7.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s7.Name = "lbl_s7";
+            this.lbl_s7.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s7.TabIndex = 5;
+            this.lbl_s7.Text = "A6";
+            this.lbl_s7.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s29_taxi
+            // pnl_s16_taxi
             // 
-            this.pnl_s29_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s29_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s29_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s29_taxi.Controls.Add(this.pnl_s29_tri);
-            this.pnl_s29_taxi.Controls.Add(this.lbl_s29);
-            this.pnl_s29_taxi.Location = new System.Drawing.Point(352, 296);
-            this.pnl_s29_taxi.Name = "pnl_s29_taxi";
-            this.pnl_s29_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s29_taxi.TabIndex = 46;
-            this.pnl_s29_taxi.Visible = false;
+            this.pnl_s16_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s16_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s16_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s16_taxi.Controls.Add(this.pnl_s16_tri);
+            this.pnl_s16_taxi.Controls.Add(this.lbl_s16);
+            this.pnl_s16_taxi.Location = new System.Drawing.Point(1011, 121);
+            this.pnl_s16_taxi.Name = "pnl_s16_taxi";
+            this.pnl_s16_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s16_taxi.TabIndex = 44;
+            this.pnl_s16_taxi.Visible = false;
             // 
-            // pnl_s29_tri
+            // pnl_s16_tri
             // 
-            this.pnl_s29_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s29_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s29_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s29_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s29_tri.Name = "pnl_s29_tri";
-            this.pnl_s29_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s29_tri.TabIndex = 6;
-            this.pnl_s29_tri.Tag = "B";
+            this.pnl_s16_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s16_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s16_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s16_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s16_tri.Name = "pnl_s16_tri";
+            this.pnl_s16_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s16_tri.TabIndex = 6;
+            this.pnl_s16_tri.Tag = "T";
             // 
-            // lbl_s29
+            // lbl_s16
             // 
-            this.lbl_s29.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s29.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s29.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s29.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s29.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s29.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s29.Name = "lbl_s29";
-            this.lbl_s29.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s29.TabIndex = 5;
-            this.lbl_s29.Text = "A6";
-            this.lbl_s29.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s16.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s16.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s16.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s16.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s16.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s16.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s16.Name = "lbl_s16";
+            this.lbl_s16.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s16.TabIndex = 5;
+            this.lbl_s16.Text = "A6";
+            this.lbl_s16.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s30_taxi
+            // pnl_s8_taxi
             // 
-            this.pnl_s30_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
-            this.pnl_s30_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s30_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s30_taxi.Controls.Add(this.pnl_s30_tri);
-            this.pnl_s30_taxi.Controls.Add(this.lbl_s30);
-            this.pnl_s30_taxi.Location = new System.Drawing.Point(1011, 296);
-            this.pnl_s30_taxi.Name = "pnl_s30_taxi";
-            this.pnl_s30_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s30_taxi.TabIndex = 47;
-            this.pnl_s30_taxi.Visible = false;
+            this.pnl_s8_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s8_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s8_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s8_taxi.Controls.Add(this.pnl_s8_tri);
+            this.pnl_s8_taxi.Controls.Add(this.lbl_s8);
+            this.pnl_s8_taxi.Location = new System.Drawing.Point(408, 121);
+            this.pnl_s8_taxi.Name = "pnl_s8_taxi";
+            this.pnl_s8_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s8_taxi.TabIndex = 50;
+            this.pnl_s8_taxi.Visible = false;
             // 
-            // pnl_s30_tri
+            // pnl_s8_tri
             // 
-            this.pnl_s30_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s30_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s30_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s30_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s30_tri.Name = "pnl_s30_tri";
-            this.pnl_s30_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s30_tri.TabIndex = 6;
-            this.pnl_s30_tri.Tag = "B";
+            this.pnl_s8_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s8_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s8_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s8_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s8_tri.Name = "pnl_s8_tri";
+            this.pnl_s8_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s8_tri.TabIndex = 6;
+            this.pnl_s8_tri.Tag = "T";
             // 
-            // lbl_s30
+            // lbl_s8
             // 
-            this.lbl_s30.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s30.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s30.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s30.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s30.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s30.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s30.Name = "lbl_s30";
-            this.lbl_s30.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s30.TabIndex = 5;
-            this.lbl_s30.Text = "A6";
-            this.lbl_s30.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s8.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s8.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s8.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s8.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s8.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s8.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s8.Name = "lbl_s8";
+            this.lbl_s8.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s8.TabIndex = 5;
+            this.lbl_s8.Text = "A6";
+            this.lbl_s8.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s31_taxi
+            // pnl_s9_taxi
             // 
-            this.pnl_s31_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s31_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s31_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s31_taxi.Controls.Add(this.pnl_s31_tri);
-            this.pnl_s31_taxi.Controls.Add(this.lbl_s31);
-            this.pnl_s31_taxi.Location = new System.Drawing.Point(408, 296);
-            this.pnl_s31_taxi.Name = "pnl_s31_taxi";
-            this.pnl_s31_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s31_taxi.TabIndex = 48;
-            this.pnl_s31_taxi.Visible = false;
+            this.pnl_s9_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s9_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s9_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s9_taxi.Controls.Add(this.pnl_s9_tri);
+            this.pnl_s9_taxi.Controls.Add(this.lbl_s9);
+            this.pnl_s9_taxi.Location = new System.Drawing.Point(619, 121);
+            this.pnl_s9_taxi.Name = "pnl_s9_taxi";
+            this.pnl_s9_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s9_taxi.TabIndex = 45;
+            this.pnl_s9_taxi.Visible = false;
             // 
-            // pnl_s31_tri
+            // pnl_s9_tri
             // 
-            this.pnl_s31_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s31_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s31_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s31_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s31_tri.Name = "pnl_s31_tri";
-            this.pnl_s31_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s31_tri.TabIndex = 6;
-            this.pnl_s31_tri.Tag = "B";
+            this.pnl_s9_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s9_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s9_tri.Dock = System.Windows.Forms.DockStyle.Top;
+            this.pnl_s9_tri.Location = new System.Drawing.Point(0, 40);
+            this.pnl_s9_tri.Name = "pnl_s9_tri";
+            this.pnl_s9_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s9_tri.TabIndex = 6;
+            this.pnl_s9_tri.Tag = "T";
             // 
-            // lbl_s31
+            // lbl_s9
             // 
-            this.lbl_s31.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s31.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s31.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s31.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s31.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s31.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s31.Name = "lbl_s31";
-            this.lbl_s31.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s31.TabIndex = 5;
-            this.lbl_s31.Text = "A6";
-            this.lbl_s31.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.lbl_s9.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s9.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s9.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lbl_s9.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s9.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s9.Location = new System.Drawing.Point(0, 0);
+            this.lbl_s9.Name = "lbl_s9";
+            this.lbl_s9.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s9.TabIndex = 5;
+            this.lbl_s9.Text = "A6";
+            this.lbl_s9.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s23_taxi
+            // 
+            this.pnl_s23_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s23_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s23_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s23_taxi.Controls.Add(this.pnl_s23_tri);
+            this.pnl_s23_taxi.Controls.Add(this.lbl_s23);
+            this.pnl_s23_taxi.Location = new System.Drawing.Point(352, 296);
+            this.pnl_s23_taxi.Name = "pnl_s23_taxi";
+            this.pnl_s23_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s23_taxi.TabIndex = 46;
+            this.pnl_s23_taxi.Visible = false;
+            // 
+            // pnl_s23_tri
+            // 
+            this.pnl_s23_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s23_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s23_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s23_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s23_tri.Name = "pnl_s23_tri";
+            this.pnl_s23_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s23_tri.TabIndex = 6;
+            this.pnl_s23_tri.Tag = "B";
+            // 
+            // lbl_s23
+            // 
+            this.lbl_s23.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s23.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s23.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s23.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s23.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s23.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s23.Name = "lbl_s23";
+            this.lbl_s23.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s23.TabIndex = 5;
+            this.lbl_s23.Text = "A6";
+            this.lbl_s23.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // pnl_s32_taxi
             // 
@@ -1383,10 +1307,10 @@
             this.pnl_s32_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s32_taxi.Controls.Add(this.pnl_s32_tri);
             this.pnl_s32_taxi.Controls.Add(this.lbl_s32);
-            this.pnl_s32_taxi.Location = new System.Drawing.Point(619, 296);
+            this.pnl_s32_taxi.Location = new System.Drawing.Point(1011, 296);
             this.pnl_s32_taxi.Name = "pnl_s32_taxi";
             this.pnl_s32_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s32_taxi.TabIndex = 49;
+            this.pnl_s32_taxi.TabIndex = 47;
             this.pnl_s32_taxi.Visible = false;
             // 
             // pnl_s32_tri
@@ -1414,6 +1338,242 @@
             this.lbl_s32.Text = "A6";
             this.lbl_s32.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // pnl_s24_taxi
+            // 
+            this.pnl_s24_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s24_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s24_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s24_taxi.Controls.Add(this.pnl_s24_tri);
+            this.pnl_s24_taxi.Controls.Add(this.lbl_s24);
+            this.pnl_s24_taxi.Location = new System.Drawing.Point(408, 296);
+            this.pnl_s24_taxi.Name = "pnl_s24_taxi";
+            this.pnl_s24_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s24_taxi.TabIndex = 48;
+            this.pnl_s24_taxi.Visible = false;
+            // 
+            // pnl_s24_tri
+            // 
+            this.pnl_s24_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s24_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s24_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s24_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s24_tri.Name = "pnl_s24_tri";
+            this.pnl_s24_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s24_tri.TabIndex = 6;
+            this.pnl_s24_tri.Tag = "B";
+            // 
+            // lbl_s24
+            // 
+            this.lbl_s24.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s24.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s24.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s24.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s24.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s24.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s24.Name = "lbl_s24";
+            this.lbl_s24.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s24.TabIndex = 5;
+            this.lbl_s24.Text = "A6";
+            this.lbl_s24.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s25_taxi
+            // 
+            this.pnl_s25_taxi.Anchor = System.Windows.Forms.AnchorStyles.Right;
+            this.pnl_s25_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s25_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s25_taxi.Controls.Add(this.pnl_s25_tri);
+            this.pnl_s25_taxi.Controls.Add(this.lbl_s25);
+            this.pnl_s25_taxi.Location = new System.Drawing.Point(619, 296);
+            this.pnl_s25_taxi.Name = "pnl_s25_taxi";
+            this.pnl_s25_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s25_taxi.TabIndex = 49;
+            this.pnl_s25_taxi.Visible = false;
+            // 
+            // pnl_s25_tri
+            // 
+            this.pnl_s25_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s25_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s25_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s25_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s25_tri.Name = "pnl_s25_tri";
+            this.pnl_s25_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s25_tri.TabIndex = 6;
+            this.pnl_s25_tri.Tag = "B";
+            // 
+            // lbl_s25
+            // 
+            this.lbl_s25.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s25.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s25.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s25.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s25.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s25.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s25.Name = "lbl_s25";
+            this.lbl_s25.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s25.TabIndex = 5;
+            this.lbl_s25.Text = "A6";
+            this.lbl_s25.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s22_taxi
+            // 
+            this.pnl_s22_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s22_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s22_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s22_taxi.BackgroundImage")));
+            this.pnl_s22_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s22_taxi.Controls.Add(this.pnl_s22_tri);
+            this.pnl_s22_taxi.Controls.Add(this.lbl_s22);
+            this.pnl_s22_taxi.Location = new System.Drawing.Point(296, 296);
+            this.pnl_s22_taxi.Name = "pnl_s22_taxi";
+            this.pnl_s22_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s22_taxi.TabIndex = 42;
+            this.pnl_s22_taxi.Visible = false;
+            // 
+            // pnl_s22_tri
+            // 
+            this.pnl_s22_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s22_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s22_tri.BackgroundImage")));
+            this.pnl_s22_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s22_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s22_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s22_tri.Name = "pnl_s22_tri";
+            this.pnl_s22_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s22_tri.TabIndex = 6;
+            this.pnl_s22_tri.Tag = "B";
+            // 
+            // lbl_s22
+            // 
+            this.lbl_s22.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s22.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s22.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s22.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s22.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s22.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s22.Name = "lbl_s22";
+            this.lbl_s22.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s22.TabIndex = 5;
+            this.lbl_s22.Text = "A6";
+            this.lbl_s22.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s21_taxi
+            // 
+            this.pnl_s21_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s21_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s21_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s21_taxi.BackgroundImage")));
+            this.pnl_s21_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s21_taxi.Controls.Add(this.pnl_s21_tri);
+            this.pnl_s21_taxi.Controls.Add(this.lbl_s21);
+            this.pnl_s21_taxi.Location = new System.Drawing.Point(240, 296);
+            this.pnl_s21_taxi.Name = "pnl_s21_taxi";
+            this.pnl_s21_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s21_taxi.TabIndex = 40;
+            this.pnl_s21_taxi.Visible = false;
+            // 
+            // pnl_s21_tri
+            // 
+            this.pnl_s21_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s21_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s21_tri.BackgroundImage")));
+            this.pnl_s21_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s21_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s21_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s21_tri.Name = "pnl_s21_tri";
+            this.pnl_s21_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s21_tri.TabIndex = 6;
+            this.pnl_s21_tri.Tag = "B";
+            // 
+            // lbl_s21
+            // 
+            this.lbl_s21.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s21.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s21.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s21.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s21.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s21.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s21.Name = "lbl_s21";
+            this.lbl_s21.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s21.TabIndex = 5;
+            this.lbl_s21.Text = "A6";
+            this.lbl_s21.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s20_taxi
+            // 
+            this.pnl_s20_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s20_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s20_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s20_taxi.BackgroundImage")));
+            this.pnl_s20_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s20_taxi.Controls.Add(this.pnl_s20_tri);
+            this.pnl_s20_taxi.Controls.Add(this.lbl_s20);
+            this.pnl_s20_taxi.Location = new System.Drawing.Point(184, 296);
+            this.pnl_s20_taxi.Name = "pnl_s20_taxi";
+            this.pnl_s20_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s20_taxi.TabIndex = 38;
+            this.pnl_s20_taxi.Visible = false;
+            // 
+            // pnl_s20_tri
+            // 
+            this.pnl_s20_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s20_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s20_tri.BackgroundImage")));
+            this.pnl_s20_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s20_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s20_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s20_tri.Name = "pnl_s20_tri";
+            this.pnl_s20_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s20_tri.TabIndex = 6;
+            this.pnl_s20_tri.Tag = "B";
+            // 
+            // lbl_s20
+            // 
+            this.lbl_s20.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s20.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s20.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s20.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s20.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s20.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s20.Name = "lbl_s20";
+            this.lbl_s20.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s20.TabIndex = 5;
+            this.lbl_s20.Text = "A6";
+            this.lbl_s20.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // pnl_s19_taxi
+            // 
+            this.pnl_s19_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
+            this.pnl_s19_taxi.BackColor = System.Drawing.Color.LightGray;
+            this.pnl_s19_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s19_taxi.BackgroundImage")));
+            this.pnl_s19_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s19_taxi.Controls.Add(this.pnl_s19_tri);
+            this.pnl_s19_taxi.Controls.Add(this.lbl_s19);
+            this.pnl_s19_taxi.Location = new System.Drawing.Point(128, 296);
+            this.pnl_s19_taxi.Name = "pnl_s19_taxi";
+            this.pnl_s19_taxi.Size = new System.Drawing.Size(40, 119);
+            this.pnl_s19_taxi.TabIndex = 36;
+            this.pnl_s19_taxi.Visible = false;
+            // 
+            // pnl_s19_tri
+            // 
+            this.pnl_s19_tri.BackColor = System.Drawing.Color.Gray;
+            this.pnl_s19_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s19_tri.BackgroundImage")));
+            this.pnl_s19_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.pnl_s19_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.pnl_s19_tri.Location = new System.Drawing.Point(0, 63);
+            this.pnl_s19_tri.Name = "pnl_s19_tri";
+            this.pnl_s19_tri.Size = new System.Drawing.Size(40, 16);
+            this.pnl_s19_tri.TabIndex = 6;
+            this.pnl_s19_tri.Tag = "B";
+            // 
+            // lbl_s19
+            // 
+            this.lbl_s19.BackColor = System.Drawing.Color.DarkGray;
+            this.lbl_s19.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.lbl_s19.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.lbl_s19.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_s19.ForeColor = System.Drawing.Color.Black;
+            this.lbl_s19.Location = new System.Drawing.Point(0, 79);
+            this.lbl_s19.Name = "lbl_s19";
+            this.lbl_s19.Size = new System.Drawing.Size(40, 40);
+            this.lbl_s19.TabIndex = 5;
+            this.lbl_s19.Text = "A6";
+            this.lbl_s19.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // pnl_s18_taxi
             // 
             this.pnl_s18_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
@@ -1422,10 +1582,10 @@
             this.pnl_s18_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s18_taxi.Controls.Add(this.pnl_s18_tri);
             this.pnl_s18_taxi.Controls.Add(this.lbl_s18);
-            this.pnl_s18_taxi.Location = new System.Drawing.Point(296, 296);
+            this.pnl_s18_taxi.Location = new System.Drawing.Point(72, 296);
             this.pnl_s18_taxi.Name = "pnl_s18_taxi";
             this.pnl_s18_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s18_taxi.TabIndex = 42;
+            this.pnl_s18_taxi.TabIndex = 34;
             this.pnl_s18_taxi.Visible = false;
             // 
             // pnl_s18_tri
@@ -1462,10 +1622,10 @@
             this.pnl_s17_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.pnl_s17_taxi.Controls.Add(this.pnl_s17_tri);
             this.pnl_s17_taxi.Controls.Add(this.lbl_s17);
-            this.pnl_s17_taxi.Location = new System.Drawing.Point(240, 296);
+            this.pnl_s17_taxi.Location = new System.Drawing.Point(16, 296);
             this.pnl_s17_taxi.Name = "pnl_s17_taxi";
             this.pnl_s17_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s17_taxi.TabIndex = 40;
+            this.pnl_s17_taxi.TabIndex = 32;
             this.pnl_s17_taxi.Visible = false;
             // 
             // pnl_s17_tri
@@ -1494,166 +1654,6 @@
             this.lbl_s17.Text = "A6";
             this.lbl_s17.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // pnl_s16_taxi
-            // 
-            this.pnl_s16_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s16_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s16_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s16_taxi.BackgroundImage")));
-            this.pnl_s16_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s16_taxi.Controls.Add(this.pnl_s16_tri);
-            this.pnl_s16_taxi.Controls.Add(this.lbl_s16);
-            this.pnl_s16_taxi.Location = new System.Drawing.Point(184, 296);
-            this.pnl_s16_taxi.Name = "pnl_s16_taxi";
-            this.pnl_s16_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s16_taxi.TabIndex = 38;
-            this.pnl_s16_taxi.Visible = false;
-            // 
-            // pnl_s16_tri
-            // 
-            this.pnl_s16_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s16_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s16_tri.BackgroundImage")));
-            this.pnl_s16_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s16_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s16_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s16_tri.Name = "pnl_s16_tri";
-            this.pnl_s16_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s16_tri.TabIndex = 6;
-            this.pnl_s16_tri.Tag = "B";
-            // 
-            // lbl_s16
-            // 
-            this.lbl_s16.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s16.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s16.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s16.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s16.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s16.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s16.Name = "lbl_s16";
-            this.lbl_s16.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s16.TabIndex = 5;
-            this.lbl_s16.Text = "A6";
-            this.lbl_s16.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s15_taxi
-            // 
-            this.pnl_s15_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s15_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s15_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s15_taxi.BackgroundImage")));
-            this.pnl_s15_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s15_taxi.Controls.Add(this.pnl_s15_tri);
-            this.pnl_s15_taxi.Controls.Add(this.lbl_s15);
-            this.pnl_s15_taxi.Location = new System.Drawing.Point(128, 296);
-            this.pnl_s15_taxi.Name = "pnl_s15_taxi";
-            this.pnl_s15_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s15_taxi.TabIndex = 36;
-            this.pnl_s15_taxi.Visible = false;
-            // 
-            // pnl_s15_tri
-            // 
-            this.pnl_s15_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s15_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s15_tri.BackgroundImage")));
-            this.pnl_s15_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s15_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s15_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s15_tri.Name = "pnl_s15_tri";
-            this.pnl_s15_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s15_tri.TabIndex = 6;
-            this.pnl_s15_tri.Tag = "B";
-            // 
-            // lbl_s15
-            // 
-            this.lbl_s15.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s15.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s15.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s15.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s15.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s15.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s15.Name = "lbl_s15";
-            this.lbl_s15.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s15.TabIndex = 5;
-            this.lbl_s15.Text = "A6";
-            this.lbl_s15.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s14_taxi
-            // 
-            this.pnl_s14_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s14_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s14_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s14_taxi.BackgroundImage")));
-            this.pnl_s14_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s14_taxi.Controls.Add(this.pnl_s14_tri);
-            this.pnl_s14_taxi.Controls.Add(this.lbl_s14);
-            this.pnl_s14_taxi.Location = new System.Drawing.Point(72, 296);
-            this.pnl_s14_taxi.Name = "pnl_s14_taxi";
-            this.pnl_s14_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s14_taxi.TabIndex = 34;
-            this.pnl_s14_taxi.Visible = false;
-            // 
-            // pnl_s14_tri
-            // 
-            this.pnl_s14_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s14_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s14_tri.BackgroundImage")));
-            this.pnl_s14_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s14_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s14_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s14_tri.Name = "pnl_s14_tri";
-            this.pnl_s14_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s14_tri.TabIndex = 6;
-            this.pnl_s14_tri.Tag = "B";
-            // 
-            // lbl_s14
-            // 
-            this.lbl_s14.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s14.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s14.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s14.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s14.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s14.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s14.Name = "lbl_s14";
-            this.lbl_s14.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s14.TabIndex = 5;
-            this.lbl_s14.Text = "A6";
-            this.lbl_s14.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // pnl_s13_taxi
-            // 
-            this.pnl_s13_taxi.Anchor = System.Windows.Forms.AnchorStyles.Left;
-            this.pnl_s13_taxi.BackColor = System.Drawing.Color.LightGray;
-            this.pnl_s13_taxi.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s13_taxi.BackgroundImage")));
-            this.pnl_s13_taxi.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s13_taxi.Controls.Add(this.pnl_s13_tri);
-            this.pnl_s13_taxi.Controls.Add(this.lbl_s13);
-            this.pnl_s13_taxi.Location = new System.Drawing.Point(16, 296);
-            this.pnl_s13_taxi.Name = "pnl_s13_taxi";
-            this.pnl_s13_taxi.Size = new System.Drawing.Size(40, 119);
-            this.pnl_s13_taxi.TabIndex = 32;
-            this.pnl_s13_taxi.Visible = false;
-            // 
-            // pnl_s13_tri
-            // 
-            this.pnl_s13_tri.BackColor = System.Drawing.Color.Gray;
-            this.pnl_s13_tri.BackgroundImage = ((System.Drawing.Image)(resources.GetObject("pnl_s13_tri.BackgroundImage")));
-            this.pnl_s13_tri.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.pnl_s13_tri.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnl_s13_tri.Location = new System.Drawing.Point(0, 63);
-            this.pnl_s13_tri.Name = "pnl_s13_tri";
-            this.pnl_s13_tri.Size = new System.Drawing.Size(40, 16);
-            this.pnl_s13_tri.TabIndex = 6;
-            this.pnl_s13_tri.Tag = "B";
-            // 
-            // lbl_s13
-            // 
-            this.lbl_s13.BackColor = System.Drawing.Color.DarkGray;
-            this.lbl_s13.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.lbl_s13.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lbl_s13.Font = new System.Drawing.Font("Arial", 17F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Pixel);
-            this.lbl_s13.ForeColor = System.Drawing.Color.Black;
-            this.lbl_s13.Location = new System.Drawing.Point(0, 79);
-            this.lbl_s13.Name = "lbl_s13";
-            this.lbl_s13.Size = new System.Drawing.Size(40, 40);
-            this.lbl_s13.TabIndex = 5;
-            this.lbl_s13.Text = "A6";
-            this.lbl_s13.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
             // Controller_Legacy
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
@@ -1672,32 +1672,32 @@
             this.pnl_s4_taxi.ResumeLayout(false);
             this.pnl_s3_taxi.ResumeLayout(false);
             this.pnl_s2_taxi.ResumeLayout(false);
-            this.pnl_s24_taxi.ResumeLayout(false);
+            this.pnl_s31_taxi.ResumeLayout(false);
+            this.pnl_s30_taxi.ResumeLayout(false);
+            this.pnl_s29_taxi.ResumeLayout(false);
+            this.pnl_s28_taxi.ResumeLayout(false);
+            this.pnl_s27_taxi.ResumeLayout(false);
+            this.pnl_s26_taxi.ResumeLayout(false);
+            this.pnl_s10_taxi.ResumeLayout(false);
+            this.pnl_s11_taxi.ResumeLayout(false);
+            this.pnl_s12_taxi.ResumeLayout(false);
+            this.pnl_s13_taxi.ResumeLayout(false);
+            this.pnl_s14_taxi.ResumeLayout(false);
+            this.pnl_s15_taxi.ResumeLayout(false);
+            this.pnl_s7_taxi.ResumeLayout(false);
+            this.pnl_s16_taxi.ResumeLayout(false);
+            this.pnl_s8_taxi.ResumeLayout(false);
+            this.pnl_s9_taxi.ResumeLayout(false);
             this.pnl_s23_taxi.ResumeLayout(false);
+            this.pnl_s32_taxi.ResumeLayout(false);
+            this.pnl_s24_taxi.ResumeLayout(false);
+            this.pnl_s25_taxi.ResumeLayout(false);
             this.pnl_s22_taxi.ResumeLayout(false);
             this.pnl_s21_taxi.ResumeLayout(false);
             this.pnl_s20_taxi.ResumeLayout(false);
             this.pnl_s19_taxi.ResumeLayout(false);
-            this.pnl_s7_taxi.ResumeLayout(false);
-            this.pnl_s8_taxi.ResumeLayout(false);
-            this.pnl_s9_taxi.ResumeLayout(false);
-            this.pnl_s10_taxi.ResumeLayout(false);
-            this.pnl_s11_taxi.ResumeLayout(false);
-            this.pnl_s12_taxi.ResumeLayout(false);
-            this.pnl_s25_taxi.ResumeLayout(false);
-            this.pnl_s26_taxi.ResumeLayout(false);
-            this.pnl_s27_taxi.ResumeLayout(false);
-            this.pnl_s28_taxi.ResumeLayout(false);
-            this.pnl_s29_taxi.ResumeLayout(false);
-            this.pnl_s30_taxi.ResumeLayout(false);
-            this.pnl_s31_taxi.ResumeLayout(false);
-            this.pnl_s32_taxi.ResumeLayout(false);
             this.pnl_s18_taxi.ResumeLayout(false);
             this.pnl_s17_taxi.ResumeLayout(false);
-            this.pnl_s16_taxi.ResumeLayout(false);
-            this.pnl_s15_taxi.ResumeLayout(false);
-            this.pnl_s14_taxi.ResumeLayout(false);
-            this.pnl_s13_taxi.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -1732,32 +1732,6 @@
         private System.Windows.Forms.Label lbl_s2;
         private System.Windows.Forms.Label lbl_T_S;
         private System.Windows.Forms.Label lbl_B_S;
-        private System.Windows.Forms.Panel pnl_s18_taxi;
-        private System.Windows.Forms.Panel pnl_s18_tri;
-        private System.Windows.Forms.Label lbl_s18;
-        private System.Windows.Forms.Panel pnl_s17_taxi;
-        private System.Windows.Forms.Panel pnl_s17_tri;
-        private System.Windows.Forms.Label lbl_s17;
-        private System.Windows.Forms.Panel pnl_s16_taxi;
-        private System.Windows.Forms.Panel pnl_s16_tri;
-        private System.Windows.Forms.Label lbl_s16;
-        private System.Windows.Forms.Panel pnl_s15_taxi;
-        private System.Windows.Forms.Panel pnl_s15_tri;
-        private System.Windows.Forms.Label lbl_s15;
-        private System.Windows.Forms.Panel panel45;
-        private System.Windows.Forms.Panel pnl_s14_taxi;
-        private System.Windows.Forms.Panel pnl_s14_tri;
-        private System.Windows.Forms.Label lbl_s14;
-        private System.Windows.Forms.Panel pnl_s13_taxi;
-        private System.Windows.Forms.Panel pnl_s13_tri;
-        private System.Windows.Forms.Label lbl_s13;
-        private System.Windows.Forms.Panel panel41;
-        private System.Windows.Forms.Panel pnl_s24_taxi;
-        private System.Windows.Forms.Panel pnl_s24_tri;
-        private System.Windows.Forms.Label lbl_s24;
-        private System.Windows.Forms.Panel pnl_s23_taxi;
-        private System.Windows.Forms.Panel pnl_s23_tri;
-        private System.Windows.Forms.Label lbl_s23;
         private System.Windows.Forms.Panel pnl_s22_taxi;
         private System.Windows.Forms.Panel pnl_s22_tri;
         private System.Windows.Forms.Label lbl_s22;
@@ -1770,50 +1744,80 @@
         private System.Windows.Forms.Panel pnl_s19_taxi;
         private System.Windows.Forms.Panel pnl_s19_tri;
         private System.Windows.Forms.Label lbl_s19;
-        private System.Windows.Forms.Panel pnl_s7_taxi;
-        private System.Windows.Forms.Panel pnl_s7_tri;
-        private System.Windows.Forms.Label lbl_s7;
-        private System.Windows.Forms.Panel pnl_s8_taxi;
-        private System.Windows.Forms.Panel pnl_s8_tri;
-        private System.Windows.Forms.Label lbl_s8;
-        private System.Windows.Forms.Panel pnl_s9_taxi;
-        private System.Windows.Forms.Panel pnl_s9_tri;
-        private System.Windows.Forms.Label lbl_s9;
+        private System.Windows.Forms.Panel panel45;
+        private System.Windows.Forms.Panel pnl_s18_taxi;
+        private System.Windows.Forms.Panel pnl_s18_tri;
+        private System.Windows.Forms.Label lbl_s18;
+        private System.Windows.Forms.Panel pnl_s17_taxi;
+        private System.Windows.Forms.Panel pnl_s17_tri;
+        private System.Windows.Forms.Label lbl_s17;
+        private System.Windows.Forms.Panel panel41;
+        private System.Windows.Forms.Panel pnl_s31_taxi;
+        private System.Windows.Forms.Panel pnl_s31_tri;
+        private System.Windows.Forms.Label lbl_s31;
+        private System.Windows.Forms.Panel pnl_s30_taxi;
+        private System.Windows.Forms.Panel pnl_s30_tri;
+        private System.Windows.Forms.Label lbl_s30;
+        private System.Windows.Forms.Panel pnl_s29_taxi;
+        private System.Windows.Forms.Panel pnl_s29_tri;
+        private System.Windows.Forms.Label lbl_s29;
+        private System.Windows.Forms.Panel pnl_s28_taxi;
+        private System.Windows.Forms.Panel pnl_s28_tri;
+        private System.Windows.Forms.Label lbl_s28;
+        private System.Windows.Forms.Panel pnl_s27_taxi;
+        private System.Windows.Forms.Panel pnl_s27_tri;
+        private System.Windows.Forms.Label lbl_s27;
+        private System.Windows.Forms.Panel pnl_s26_taxi;
+        private System.Windows.Forms.Panel pnl_s26_tri;
+        private System.Windows.Forms.Label lbl_s26;
         private System.Windows.Forms.Panel pnl_s10_taxi;
         private System.Windows.Forms.Panel pnl_s10_tri;
         private System.Windows.Forms.Label lbl_s10;
-        private System.Windows.Forms.Panel panel4;
         private System.Windows.Forms.Panel pnl_s11_taxi;
         private System.Windows.Forms.Panel pnl_s11_tri;
         private System.Windows.Forms.Label lbl_s11;
         private System.Windows.Forms.Panel pnl_s12_taxi;
         private System.Windows.Forms.Panel pnl_s12_tri;
         private System.Windows.Forms.Label lbl_s12;
-        private System.Windows.Forms.Panel pnl_s25_taxi;
-        private System.Windows.Forms.Panel pnl_s25_tri;
-        private System.Windows.Forms.Label lbl_s25;
-        private System.Windows.Forms.Panel pnl_s26_taxi;
-        private System.Windows.Forms.Panel pnl_s26_tri;
-        private System.Windows.Forms.Label lbl_s26;
-        private System.Windows.Forms.Panel pnl_s27_taxi;
-        private System.Windows.Forms.Panel pnl_s27_tri;
-        private System.Windows.Forms.Label lbl_s27;
-        private System.Windows.Forms.Panel pnl_s28_taxi;
-        private System.Windows.Forms.Panel pnl_s28_tri;
-        private System.Windows.Forms.Label lbl_s28;
-        private System.Windows.Forms.Panel pnl_s29_taxi;
-        private System.Windows.Forms.Panel pnl_s29_tri;
-        private System.Windows.Forms.Label lbl_s29;
-        private System.Windows.Forms.Panel pnl_s30_taxi;
-        private System.Windows.Forms.Panel pnl_s30_tri;
-        private System.Windows.Forms.Label lbl_s30;
-        private System.Windows.Forms.Panel pnl_s31_taxi;
-        private System.Windows.Forms.Panel pnl_s31_tri;
-        private System.Windows.Forms.Label lbl_s31;
+        private System.Windows.Forms.Panel pnl_s13_taxi;
+        private System.Windows.Forms.Panel pnl_s13_tri;
+        private System.Windows.Forms.Label lbl_s13;
+        private System.Windows.Forms.Panel panel4;
+        private System.Windows.Forms.Panel pnl_s14_taxi;
+        private System.Windows.Forms.Panel pnl_s14_tri;
+        private System.Windows.Forms.Label lbl_s14;
+        private System.Windows.Forms.Panel pnl_s15_taxi;
+        private System.Windows.Forms.Panel pnl_s15_tri;
+        private System.Windows.Forms.Label lbl_s15;
+        private System.Windows.Forms.Panel pnl_s7_taxi;
+        private System.Windows.Forms.Panel pnl_s7_tri;
+        private System.Windows.Forms.Label lbl_s7;
+        private System.Windows.Forms.Panel pnl_s16_taxi;
+        private System.Windows.Forms.Panel pnl_s16_tri;
+        private System.Windows.Forms.Label lbl_s16;
+        private System.Windows.Forms.Panel pnl_s8_taxi;
+        private System.Windows.Forms.Panel pnl_s8_tri;
+        private System.Windows.Forms.Label lbl_s8;
+        private System.Windows.Forms.Panel pnl_s9_taxi;
+        private System.Windows.Forms.Panel pnl_s9_tri;
+        private System.Windows.Forms.Label lbl_s9;
+        private System.Windows.Forms.Panel pnl_s23_taxi;
+        private System.Windows.Forms.Panel pnl_s23_tri;
+        private System.Windows.Forms.Label lbl_s23;
         private System.Windows.Forms.Panel pnl_s32_taxi;
         private System.Windows.Forms.Panel pnl_s32_tri;
         private System.Windows.Forms.Label lbl_s32;
+        private System.Windows.Forms.Panel pnl_s24_taxi;
+        private System.Windows.Forms.Panel pnl_s24_tri;
+        private System.Windows.Forms.Label lbl_s24;
+        private System.Windows.Forms.Panel pnl_s25_taxi;
+        private System.Windows.Forms.Panel pnl_s25_tri;
+        private System.Windows.Forms.Label lbl_s25;
         private System.Windows.Forms.Panel pnl_T_S_tri;
         private System.Windows.Forms.Panel pnl_B_S_tri;
     }
 }
+
+
+
+
