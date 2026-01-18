@@ -53,13 +53,16 @@ namespace BARS.Windows
                 await BARS.AddAirport(icao);
                 txt_icao.Clear();
                 txt_icao.Focus();
-                btn_add.Enabled = true;
-                btn_add.Size = new Size(48, 24);
-                btn_add.Text = "ADD";
             }
             catch (Exception e)
             {
                 MessageBox.Show(e.Message, "BARS Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btn_add.Enabled = true;
+                btn_add.Size = new Size(48, 24);
+                btn_add.Text = "ADD";
             }
         }
 
