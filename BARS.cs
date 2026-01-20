@@ -561,6 +561,15 @@ namespace BARS
             {
                 logger.Log("Disconnected");
 
+                if (configMenu?.Item != null)
+                {
+                    MMI.InvokeOnGUI(() =>
+                    {
+                        configMenu.Item.Enabled = false;
+                        logger.Log("Menu item disabled");
+                    });
+                }
+
                 var airportsToRemove = ControlledAirports.ToList();
                 var ProfileWindowsToRemove = ProfileWindows.ToList();
 
