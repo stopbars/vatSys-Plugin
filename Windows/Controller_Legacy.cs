@@ -29,6 +29,20 @@ namespace BARS.Windows
         private Size lastSize;
         private List<Stopbar> AirportStopBars = new List<Stopbar>();
         private static readonly Logger logger = new Logger("LeagcyController");
+        private const int LegacyStopbarWidth = 40;
+        private const int LegacyStopbarHeight = 119;
+        private const int LegacyStopbarTriangleHeight = 16;
+        private const int LegacyStopbarSpacingX = 56;
+        private const int LegacyStopbarsPerSide = 8;
+        private const int LegacyTopRowY = 121;
+        private const int LegacyBottomRowY = 296;
+        private const int LegacyBottomTriangleOffsetY = 1;
+        private const int LegacyFirstStopbarX = 16;
+        private const int LegacyVerticalRunwayX = 504;
+        private const int LegacyVerticalRunwayWidth = 59;
+        private const int LegacyRunwayToStopbarGap = LegacyStopbarSpacingX;
+        private const int LegacySecondSideStartX = LegacyVerticalRunwayX + LegacyVerticalRunwayWidth + LegacyRunwayToStopbarGap;
+        private const int LegacyLabelSize = 40;
 
         // Profile property for runway configuration
         public string ActiveProfile { get; private set; }
@@ -90,18 +104,10 @@ namespace BARS.Windows
         {
             try
             {
-                string url = CdnProfiles.GetLegacyProfileUrl(Airport, ActiveProfile);
-                if (string.IsNullOrEmpty(url))
-                {
-                    MessageBox.Show($"Online profile not found for {Airport} - {ActiveProfile}", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-
-                string xml = CdnProfiles.DownloadXml(url);
+                string xml = CdnProfiles.GetLegacyProfileXml(Airport, ActiveProfile);
                 if (string.IsNullOrWhiteSpace(xml))
                 {
-                    MessageBox.Show($"Failed to download profile XML from CDN: {url}", "Error",
+                    MessageBox.Show($"Generated profile not found for {Airport} - {ActiveProfile}", "Error",
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
@@ -120,6 +126,11 @@ namespace BARS.Windows
 
                 // Initial seeding of server state is now handled inside NetHandler when an empty
                 // INITIAL_STATE is received. We no longer push here to avoid duplicate updates.
+            }
+            catch (CdnProfiles.ProfileGenerationException ex)
+            {
+                MessageBox.Show(ex.Message, "Profile Generation Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch (Exception ex)
             {
@@ -275,6 +286,145 @@ namespace BARS.Windows
                 string displayName = crossbar.SelectSingleNode("DisplayName").InnerText;
                 ControllerHandler.RegisterStopbar(Airport, displayName, barsId, true);
             }
+        }
+
+        private void GenerateLegacyLayout()
+        {
+            int[] xPositions = BuildLegacyStopbarXPositions();
+
+            for (int i = 0; i < xPositions.Length; i++)
+            {
+                pnl_legacy.Controls.Add(CreateLegacyStopbar($"s{i + 1}", xPositions[i], LegacyTopRowY, "T"));
+            }
+
+            for (int i = 0; i < xPositions.Length; i++)
+            {
+                pnl_legacy.Controls.Add(CreateLegacyStopbar($"s{i + 17}", xPositions[i], LegacyBottomRowY, "B"));
+            }
+
+            Label topCrossbarLabel = CreateLegacyCrossbarLabel("T_S", new Point(464, 197));
+            Panel topCrossbarTriangle = CreateLegacyCrossbarTriangle("T_S", new Point(504, 197), "T");
+            Label bottomCrossbarLabel = CreateLegacyCrossbarLabel("B_S", new Point(563, 297));
+            Panel bottomCrossbarTriangle = CreateLegacyCrossbarTriangle("B_S", new Point(504, 317 + LegacyBottomTriangleOffsetY), "B");
+
+            pnl_legacy.Controls.Add(topCrossbarLabel);
+            pnl_legacy.Controls.Add(topCrossbarTriangle);
+            pnl_legacy.Controls.Add(bottomCrossbarLabel);
+            pnl_legacy.Controls.Add(bottomCrossbarTriangle);
+
+            topCrossbarTriangle.BringToFront();
+            bottomCrossbarTriangle.BringToFront();
+        }
+
+        private static int[] BuildLegacyStopbarXPositions()
+        {
+            int[] positions = new int[LegacyStopbarsPerSide * 2];
+
+            for (int i = 0; i < LegacyStopbarsPerSide; i++)
+            {
+                positions[i] = LegacyFirstStopbarX + (i * LegacyStopbarSpacingX);
+                positions[i + LegacyStopbarsPerSide] = LegacySecondSideStartX + (i * LegacyStopbarSpacingX);
+            }
+
+            return positions;
+        }
+
+        private Panel CreateLegacyStopbar(string id, int x, int y, string triangleTag)
+        {
+            Panel taxi = new Panel
+            {
+                BackColor = Color.LightGray,
+                BackgroundImageLayout = ImageLayout.Zoom,
+                Location = new Point(x, y),
+                Name = $"pnl_{id}_taxi",
+                Size = new Size(LegacyStopbarWidth, LegacyStopbarHeight),
+                Visible = false
+            };
+
+            Label label = CreateLegacyStopbarLabel($"lbl_{id}");
+            Panel triangle = CreateLegacyTrianglePanel($"pnl_{id}_tri", triangleTag);
+
+            if (triangleTag == "T")
+            {
+                triangle.Dock = DockStyle.Top;
+                triangle.Location = new Point(0, LegacyLabelSize);
+                label.Dock = DockStyle.Top;
+                taxi.Controls.Add(triangle);
+                taxi.Controls.Add(label);
+            }
+            else
+            {
+                triangle.Location = new Point(0, LegacyStopbarHeight - LegacyLabelSize - LegacyStopbarTriangleHeight + LegacyBottomTriangleOffsetY);
+                label.Dock = DockStyle.Bottom;
+                label.Location = new Point(0, LegacyStopbarHeight - LegacyLabelSize);
+                taxi.Controls.Add(triangle);
+                taxi.Controls.Add(label);
+            }
+
+            return taxi;
+        }
+
+        private Label CreateLegacyStopbarLabel(string name)
+        {
+            return new Label
+            {
+                BackColor = Color.DarkGray,
+                Cursor = Cursors.Hand,
+                Font = new Font("Arial", 17F, FontStyle.Bold, GraphicsUnit.Pixel),
+                ForeColor = Color.Black,
+                Location = new Point(0, 0),
+                Name = name,
+                Size = new Size(LegacyLabelSize, LegacyLabelSize),
+                Text = "A6",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+        }
+
+        private Panel CreateLegacyTrianglePanel(string name, string tag)
+        {
+            return new Panel
+            {
+                BackColor = Color.Gray,
+                BackgroundImage = tag == "T" ? Properties.Resources.tri_T : Properties.Resources.tri_B,
+                BackgroundImageLayout = ImageLayout.Zoom,
+                Name = name,
+                Size = new Size(LegacyStopbarWidth, LegacyStopbarTriangleHeight),
+                Tag = tag
+            };
+        }
+
+        private Label CreateLegacyCrossbarLabel(string id, Point location)
+        {
+            return new Label
+            {
+                BackColor = Color.DarkGray,
+                BorderStyle = BorderStyle.FixedSingle,
+                Cursor = Cursors.Hand,
+                Font = new Font("Arial", 17F, FontStyle.Bold, GraphicsUnit.Pixel),
+                ForeColor = Color.Black,
+                ImageAlign = id == "T_S" ? ContentAlignment.TopLeft : ContentAlignment.BottomRight,
+                Location = location,
+                Name = $"lbl_{id}",
+                Size = new Size(40, 40),
+                Text = "A6",
+                TextAlign = ContentAlignment.MiddleCenter,
+                Visible = false
+            };
+        }
+
+        private Panel CreateLegacyCrossbarTriangle(string id, Point location, string tag)
+        {
+            return new Panel
+            {
+                BackColor = Color.PeachPuff,
+                BackgroundImage = tag == "T" ? Properties.Resources.tri_T : Properties.Resources.tri_B,
+                BackgroundImageLayout = ImageLayout.Zoom,
+                Location = location,
+                Name = $"pnl_{id}_tri",
+                Size = new Size(59, 20),
+                Tag = tag,
+                Visible = false
+            };
         }
 
         async Task InitializeStyle()

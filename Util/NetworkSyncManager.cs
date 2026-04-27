@@ -51,7 +51,12 @@ namespace BARS.Util
                     {
                         if (network.TryGetValue(sb.BARSId, out object objState))
                         {
-                            bool networkState = Convert.ToBoolean(objState);
+                            if (!NetHandler.TryReadNetworkState(objState, out bool networkState))
+                            {
+                                _logger.Log($"Audit: skipping malformed network state for {sb.BARSId} at {airport}.");
+                                continue;
+                            }
+
                             if (networkState != sb.State)
                             {
                                 _logger.Log($"Audit desync detected {sb.BARSId} airport {airport}: local={sb.State} server={networkState}. Repairing...");

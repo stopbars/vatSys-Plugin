@@ -523,6 +523,133 @@ namespace BARS.Util
             }
         }
 
+        internal static bool TryReadNetworkState(object value, out bool state)
+        {
+            state = false;
+
+            if (value == null)
+            {
+                return false;
+            }
+
+            if (value is bool boolValue)
+            {
+                state = boolValue;
+                return true;
+            }
+
+            if (value is JToken token)
+            {
+                return TryReadNetworkState(token, out state);
+            }
+
+            if (value is string stringValue)
+            {
+                return TryReadBooleanString(stringValue, out state);
+            }
+
+            if (value is IConvertible convertible)
+            {
+                try
+                {
+                    state = convertible.ToBoolean(System.Globalization.CultureInfo.InvariantCulture);
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryReadNetworkState(JToken token, out bool state)
+        {
+            state = false;
+
+            if (token == null || token.Type == JTokenType.Null || token.Type == JTokenType.Undefined)
+            {
+                return false;
+            }
+
+            if (token.Type == JTokenType.Boolean)
+            {
+                state = token.Value<bool>();
+                return true;
+            }
+
+            if (token.Type == JTokenType.Integer)
+            {
+                state = token.Value<long>() != 0;
+                return true;
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                return TryReadBooleanString(token.Value<string>(), out state);
+            }
+
+            if (token.Type == JTokenType.Object)
+            {
+                var obj = (JObject)token;
+                foreach (string propertyName in new[] { "state", "value", "active", "enabled" })
+                {
+                    if (obj.TryGetValue(propertyName, StringComparison.OrdinalIgnoreCase, out JToken nestedToken) &&
+                        TryReadNetworkState(nestedToken, out state))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryReadBooleanString(string value, out bool state)
+        {
+            state = false;
+
+            if (bool.TryParse(value, out state))
+            {
+                return true;
+            }
+
+            if (long.TryParse(value, out long numericValue))
+            {
+                state = numericValue != 0;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryReadNetworkObject(object value, out string id, out bool state)
+        {
+            id = null;
+            state = false;
+
+            if (!(value is JToken token))
+            {
+                return false;
+            }
+
+            if (token is JProperty property)
+            {
+                id = property.Name;
+                return TryReadNetworkState(property.Value, out state);
+            }
+
+            if (!(token is JObject obj))
+            {
+                return false;
+            }
+
+            id = (string)(obj["id"] ?? obj["objectId"]);
+            JToken stateToken = obj["state"] ?? obj["value"];
+            return !string.IsNullOrWhiteSpace(id) && TryReadNetworkState(stateToken, out state);
+        }
+
         private bool ConvertStopbarStateToNetwork(Stopbar stopbar) => stopbar.State;
         private void SetStopbarStateFromNetwork(string airport, string barsId, bool state, bool autoRaise)
         {
@@ -555,8 +682,12 @@ namespace BARS.Util
                 {
                     foreach (var obj in initialState.data.objects)
                     {
-                        string id = obj.id;
-                        bool state = obj.state;
+                        if (!TryReadNetworkObject(obj, out string id, out bool state))
+                        {
+                            logger.Log("Skipping malformed initial state object");
+                            continue;
+                        }
+
                         stopbarStates[id] = state;
                         ControllerHandler.RegisterStopbar(_airport, id, id, state, false);
                     }
@@ -789,8 +920,12 @@ namespace BARS.Util
                 {
                     foreach (var obj in snapshot.data.objects)
                     {
-                        string id = obj.id;
-                        bool state = obj.state;
+                        if (!TryReadNetworkObject(obj, out string id, out bool state))
+                        {
+                            logger.Log("Skipping malformed STATE_SNAPSHOT object");
+                            continue;
+                        }
+
                         serverStates[id] = state;
                     }
                 }
@@ -810,8 +945,7 @@ namespace BARS.Util
                     {
                         if (serverStates.TryGetValue(sb.BARSId, out object leadStateObj))
                         {
-                            bool leadState = Convert.ToBoolean(leadStateObj);
-                            if (sb.State != leadState)
+                            if (TryReadNetworkState(leadStateObj, out bool leadState) && sb.State != leadState)
                             {
                                 SetStopbarStateFromNetwork(_airport, sb.BARSId, leadState, sb.AutoRaise);
                                 logger.Log($"Snapshot aligned lead-on {sb.BARSId} to server state {leadState}");
@@ -822,8 +956,7 @@ namespace BARS.Util
 
                     if (serverStates.TryGetValue(sb.BARSId, out object srvObj))
                     {
-                        bool srvState = Convert.ToBoolean(srvObj);
-                        if (sb.State != srvState)
+                        if (TryReadNetworkState(srvObj, out bool srvState) && sb.State != srvState)
                         {
                             SetStopbarStateFromNetwork(_airport, sb.BARSId, srvState, sb.AutoRaise);
                             logger.Log($"Reconciled stopbar {sb.BARSId} to server state {srvState}");
@@ -845,8 +978,11 @@ namespace BARS.Util
                 {
                     if (!primaryIds.Contains(kvp.Key) && !leadOnIds.Contains(kvp.Key))
                     {
-                        ControllerHandler.RegisterStopbar(_airport, kvp.Key, kvp.Key, (bool)kvp.Value, false);
-                        logger.Log($"Discovered new server object {kvp.Key}; registered locally.");
+                        if (TryReadNetworkState(kvp.Value, out bool state))
+                        {
+                            ControllerHandler.RegisterStopbar(_airport, kvp.Key, kvp.Key, state, false);
+                            logger.Log($"Discovered new server object {kvp.Key}; registered locally.");
+                        }
                     }
                 }
 
@@ -872,7 +1008,12 @@ namespace BARS.Util
             try
             {
                 string objectId = stateUpdate.data.objectId;
-                bool state = stateUpdate.data.state;
+                if (!TryReadNetworkState((stateUpdate as JToken)?["data"]?["state"], out bool state))
+                {
+                    logger.Log($"Skipping malformed STATE_UPDATE for {objectId}");
+                    return;
+                }
+
                 string controllerId = stateUpdate.data.controllerId;
                 if (controllerId == _controllerId) return; // ignore own
 
@@ -976,15 +1117,15 @@ namespace BARS.Util
                     if (token is JProperty prop)
                     {
                         objectId = prop.Name;
-                        state = prop.Value.Type == JTokenType.Boolean ? prop.Value.Value<bool>() : (bool?)null;
+                        state = TryReadNetworkState(prop.Value, out bool parsedState) ? parsedState : (bool?)null;
                     }
                     else if (token is JObject obj)
                     {
                         objectId = (string)(obj["objectId"] ?? obj["id"]);
                         JToken stateToken = obj["state"] ?? obj["value"];
-                        if (stateToken != null && stateToken.Type == JTokenType.Boolean)
+                        if (TryReadNetworkState(stateToken, out bool parsedState))
                         {
-                            state = stateToken.Value<bool>();
+                            state = parsedState;
                         }
                     }
 

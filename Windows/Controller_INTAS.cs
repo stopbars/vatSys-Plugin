@@ -245,6 +245,7 @@ namespace BARS.Windows
                 LoadGroundLayout(this.Airport);
 
                 ApplyResize();
+                airportMapControl.ZoomToFitContent();
                 airportMapControl.Invalidate();
                 this.Refresh();
 
@@ -254,6 +255,7 @@ namespace BARS.Windows
                     delayTimer.Stop();
                     delayTimer.Dispose();
                     ApplyResize();
+                    airportMapControl.ZoomToFitContent();
                 };
             }
             catch (Exception ex)

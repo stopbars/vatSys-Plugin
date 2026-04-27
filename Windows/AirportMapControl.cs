@@ -16,6 +16,11 @@ namespace BARS.Windows
     {
         private const int ANIMATION_FRAMES = 60;
         private const int ANIMATION_INTERVAL = 100;
+        private const int LEAD_ON_ANIMATION_MIN_DURATION_MS = 1000;
+        private const int LEAD_ON_ANIMATION_MAX_DURATION_MS = 1500;
+        private const int LEAD_ON_ANIMATION_FAST_MIN_DURATION_MS = 250;
+        private const int LEAD_ON_ANIMATION_POINT_DURATION_BUDGET = 40;
+        private const int LEAD_ON_ANIMATION_MAX_RENDER_POINTS = 120;
 
         private const float DEFAULT_ANGLE_SNAP_TOLERANCE_DEG = 7.5f;
 
@@ -26,6 +31,7 @@ namespace BARS.Windows
         private const float MIN_ZOOM = 0.1f;
         private const int STOPBAR_BASE_SIZE = 16;
         private const float STOPBAR_MAX_SLIDE = 3f;
+        private const float WINDSOCK_CLEARANCE_PX = 4f;
         private const float TaxiwayLineWidth = 1.0f;
 
         private const int MIN_FRAME_INTERVAL_MS = 16; // ~60fps cap
@@ -56,6 +62,7 @@ namespace BARS.Windows
 
         private Point _lastMousePosition;
         private Dictionary<string, LeadOnAnimationState> _leadOnAnimations = new Dictionary<string, LeadOnAnimationState>();
+        private readonly Random _leadOnAnimationRandom = new Random();
         private AirportMapData _mapData;
         private PointF _panOffset = new PointF(0, 0);
         private List<RunwayInfo> _runways;
@@ -63,6 +70,8 @@ namespace BARS.Windows
         private Dictionary<string, StopbarCountdownTimer> _stopbarCountdowns = new Dictionary<string, StopbarCountdownTimer>();
         private Random _windRandom = new Random();
         private Dictionary<Windsock, WindState> _windsockStates = new Dictionary<Windsock, WindState>();
+        private Dictionary<Windsock, GeoPoint> _windsockSmartPositions = new Dictionary<Windsock, GeoPoint>();
+        private bool _windsockSmartPositionsInitialized = false;
         private float _zoomLevel = 1.0f;
         private readonly Dictionary<string, float> _stopbarSlideOffsetsWorld = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> _expiredCountdownBuffer = new List<string>();
@@ -278,6 +287,7 @@ namespace BARS.Windows
                 _mapData = AirportMapData.LoadFromXml(airportIcao);
                 ResetStopbarSlides();
                 InvalidateStopbarVisualCache();
+                ResetWindsockSmartPositions();
 
                 _windsockStates.Clear();
                 _windsockNearestRunway.Clear();
@@ -305,6 +315,7 @@ namespace BARS.Windows
         public void LoadGroundLayout(Dictionary<string, List<MapElement>> groundElements)
         {
             _groundElements = groundElements ?? new Dictionary<string, List<MapElement>>();
+            ResetWindsockSmartPositions();
             Invalidate();
         }
 
@@ -313,6 +324,48 @@ namespace BARS.Windows
             _zoomLevel = 1.0f;
             _panOffset = new PointF(0, 0);
             InvalidateStopbarVisualCache();
+            Invalidate();
+        }
+
+        public void ZoomToFitContent(float paddingRatio = 0.08f)
+        {
+            if (_mapData == null || Width <= 0 || Height <= 0)
+                return;
+
+            var bounds = CalculateSquareDrawingBounds();
+            if (bounds.Width <= 1f || bounds.Height <= 1f)
+                return;
+
+            var points = GetContentScreenPoints(bounds);
+            if (points.Count == 0)
+                return;
+
+            float minX = points.Min(p => p.X);
+            float maxX = points.Max(p => p.X);
+            float minY = points.Min(p => p.Y);
+            float maxY = points.Max(p => p.Y);
+
+            float contentWidth = Math.Max(1f, maxX - minX);
+            float contentHeight = Math.Max(1f, maxY - minY);
+            float padding = Math.Max(0f, Math.Min(0.4f, paddingRatio));
+            float availableWidth = Math.Max(1f, bounds.Width * (1f - (padding * 2f)));
+            float availableHeight = Math.Max(1f, bounds.Height * (1f - (padding * 2f)));
+
+            float zoom = Math.Min(availableWidth / contentWidth, availableHeight / contentHeight);
+            zoom = Math.Min(1.0f, zoom);
+            _zoomLevel = Math.Max(MIN_ZOOM, Math.Min(MAX_ZOOM, zoom));
+
+            float boundsCenterX = bounds.X + bounds.Width / 2f;
+            float boundsCenterY = bounds.Y + bounds.Height / 2f;
+            float contentCenterX = (minX + maxX) / 2f;
+            float contentCenterY = (minY + maxY) / 2f;
+
+            _panOffset = new PointF(
+                -(contentCenterX - boundsCenterX) * _zoomLevel,
+                -(contentCenterY - boundsCenterY) * _zoomLevel);
+
+            InvalidateStopbarVisualCache();
+            ResetWindsockSmartPositions();
             Invalidate();
         }
 
@@ -327,6 +380,7 @@ namespace BARS.Windows
             _mapData.Rotation = rotationDegreesCW;
             try { _mapData.RecalculateBounds(); } catch { /* ignore if not yet ready */ }
             InvalidateStopbarVisualCache();
+            ResetWindsockSmartPositions();
             Invalidate();
         }
 
@@ -402,6 +456,11 @@ namespace BARS.Windows
 
         public void UpdateLeadOnLight(string leadOnId, bool stopbarActive)
         {
+            UpdateLeadOnLight(leadOnId, stopbarActive, DateTime.Now, GetRandomLeadOnAnimationDurationSeconds(), true);
+        }
+
+        private void UpdateLeadOnLight(string leadOnId, bool stopbarActive, DateTime animationStartTime, double animationDurationSeconds, bool invalidate)
+        {
             if (_mapData != null)
             {
                 _mapData.UpdateLeadOnLightColor(leadOnId, stopbarActive);
@@ -440,10 +499,11 @@ namespace BARS.Windows
                         else
                         {
                             animState.IsAnimating = true;
-                            animState.StartTime = DateTime.Now;
+                            animState.StartTime = animationStartTime;
                             animState.StartLength = startLength;
                             animState.ProgressLength = startLength;
-                            _logger.Log($"Starting reverse animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m)");
+                            animState.DurationSeconds = GetLeadOnAnimationDurationSeconds(leadOn, animationDurationSeconds);
+                            _logger.Log($"Starting reverse animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m), duration: {animState.DurationSeconds:F2}s");
                         }
                     }
                 }
@@ -473,17 +533,21 @@ namespace BARS.Windows
                         else
                         {
                             animState.IsAnimating = true;
-                            animState.StartTime = DateTime.Now;
+                            animState.StartTime = animationStartTime;
                             animState.StartLength = startLength;
                             animState.ProgressLength = startLength;
-                            _logger.Log($"Starting forward animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m)");
+                            animState.DurationSeconds = GetLeadOnAnimationDurationSeconds(leadOn, animationDurationSeconds);
+                            _logger.Log($"Starting forward animation for lead-on {leadOnId}, length: {animState.TotalLength:F1}m (from {startLength:F1}m), duration: {animState.DurationSeconds:F2}s");
                         }
                     }
                 }
 
                 animState.PreviousState = currentState;
 
-                Invalidate();
+                if (invalidate)
+                {
+                    Invalidate();
+                }
             }
         }
 
@@ -503,13 +567,17 @@ namespace BARS.Windows
 
             if (stopbar.LeadOnIds != null && stopbar.LeadOnIds.Count > 0)
             {
+                DateTime animationStartTime = DateTime.Now;
+                double animationDurationSeconds = GetRandomLeadOnAnimationDurationSeconds();
+
                 // Aggregate across all stopbars that reference each lead-on: lead-on is OFF only when all controlling stopbars are active (raised)
                 foreach (string leadOnId in stopbar.LeadOnIds)
                 {
                     bool aggregatedActive = IsLeadOnStopbarActive(leadOnId);
-                    UpdateLeadOnLight(leadOnId, aggregatedActive);
+                    UpdateLeadOnLight(leadOnId, aggregatedActive, animationStartTime, animationDurationSeconds, false);
                 }
                 _logger.Log($"Updated {stopbar.LeadOnIds.Count} lead-on lights for stopbar {barsId}");
+                Invalidate();
             }
             else
             {
@@ -780,7 +848,7 @@ namespace BARS.Windows
             base.OnPaint(e);
             _lastPaintTime = DateTime.Now;
 
-            // Use lower quality during rapid pan/zoom for smoother interaction
+            // Use lower quality during rapid motion so large lead-on animations do not stretch past their duration.
             if (_isPanningOrZooming)
             {
                 e.Graphics.SmoothingMode = SmoothingMode.HighSpeed;
@@ -823,6 +891,11 @@ namespace BARS.Windows
             DrawStopbars(e.Graphics, stopbarVisuals);
 
             DrawStopbarCountdownLabels(e.Graphics, stopbarVisuals);
+        }
+
+        private bool HasActiveLeadOnAnimations()
+        {
+            return _leadOnAnimations.Values.Any(a => a.IsAnimating);
         }
 
         private static double AngleDifferenceDegrees(double a, double b)
@@ -946,24 +1019,14 @@ namespace BARS.Windows
                         needsRepaint = true;
                         continue;
                     }
-                    // Ensure the animation completes in at most 5 seconds.
-                    // Use a baseline speed for short lead-ons and scale up speed for longer ones so duration <= 5s.
                     var elapsedSec = (DateTime.Now - animState.StartTime).TotalSeconds;
-                    const float BASE_SPEED_MPS = 75.0f; // meters per second for typical short segments
-                    const double MAX_DURATION_SEC = 5.0; // hard cap
-                    float animationSpeed = BASE_SPEED_MPS;
-                    if (animState.TotalLength > 0f)
-                    {
-                        // If the baseline would take longer than 5s, increase speed so it finishes in 5s.
-                        float speedForCap = animState.TotalLength / (float)MAX_DURATION_SEC;
-                        animationSpeed = Math.Max(BASE_SPEED_MPS, speedForCap);
-                    }
-
+                    double durationSec = Math.Max(0.001, animState.DurationSeconds);
+                    float animationRatio = Math.Min(1f, (float)(elapsedSec / durationSec));
                     float startLength = Math.Max(0f, Math.Min(animState.TotalLength, animState.StartLength));
-                    float animationDelta = (float)(elapsedSec * animationSpeed);
 
                     if (animState.IsReverse)
                     {
+                        float animationDelta = startLength * animationRatio;
                         float newProgress = startLength - animationDelta;
                         if (newProgress <= 0f)
                         {
@@ -978,6 +1041,8 @@ namespace BARS.Windows
                     }
                     else
                     {
+                        float remainingLength = animState.TotalLength - startLength;
+                        float animationDelta = remainingLength * animationRatio;
                         float newProgress = startLength + animationDelta;
                         if (animState.TotalLength > 0f && newProgress >= animState.TotalLength)
                         {
@@ -1043,6 +1108,28 @@ namespace BARS.Windows
             }
         }
 
+        private double GetRandomLeadOnAnimationDurationSeconds()
+        {
+            int durationMs = _leadOnAnimationRandom.Next(
+                LEAD_ON_ANIMATION_MIN_DURATION_MS,
+                LEAD_ON_ANIMATION_MAX_DURATION_MS + 1);
+            return durationMs / 1000.0;
+        }
+
+        private double GetLeadOnAnimationDurationSeconds(LeadOnLight leadOn, double requestedDurationSeconds)
+        {
+            int pointCount = leadOn?.Line?.Points?.Count ?? 0;
+            int segmentCount = Math.Max(1, pointCount - 1);
+
+            if (segmentCount <= LEAD_ON_ANIMATION_POINT_DURATION_BUDGET)
+            {
+                return requestedDurationSeconds;
+            }
+
+            double scaledDuration = requestedDurationSeconds * LEAD_ON_ANIMATION_POINT_DURATION_BUDGET / segmentCount;
+            return Math.Max(LEAD_ON_ANIMATION_FAST_MIN_DURATION_MS / 1000.0, scaledDuration);
+        }
+
         private float CalculateLeadOnLength(LeadOnLight leadOn)
         {
             if (leadOn.Line.Points.Count < 2) return 0;
@@ -1084,9 +1171,85 @@ namespace BARS.Windows
             );
         }
 
+        private List<PointF> GetContentScreenPoints(RectangleF bounds)
+        {
+            var points = new List<PointF>();
+            PointF originPan = new PointF(0, 0);
+
+            void AddGeoPoint(GeoPoint geoPoint)
+            {
+                if (geoPoint == null)
+                    return;
+
+                PointF screenPoint = _mapData.GeoToScreen(geoPoint, bounds, 1.0f, originPan);
+                if (!float.IsNaN(screenPoint.X) && !float.IsInfinity(screenPoint.X) &&
+                    !float.IsNaN(screenPoint.Y) && !float.IsInfinity(screenPoint.Y))
+                {
+                    points.Add(screenPoint);
+                }
+            }
+
+            if (_mapData.Taxiways?.Lines != null)
+            {
+                foreach (var line in _mapData.Taxiways.Lines)
+                {
+                    foreach (var point in line.Points)
+                    {
+                        AddGeoPoint(point);
+                    }
+                }
+            }
+
+            if (_mapData.LeadOnLights != null)
+            {
+                foreach (var leadOn in _mapData.LeadOnLights)
+                {
+                    foreach (var point in leadOn.Line.Points)
+                    {
+                        AddGeoPoint(point);
+                    }
+                }
+            }
+
+            if (_mapData.Windsocks != null)
+            {
+                foreach (var windsock in _mapData.Windsocks)
+                {
+                    AddGeoPoint(windsock.Position);
+                }
+            }
+
+            if (_mapData.Stopbars != null)
+            {
+                foreach (var stopbar in _mapData.Stopbars)
+                {
+                    AddGeoPoint(stopbar.Position);
+                }
+            }
+
+            foreach (var elementType in _groundElements.Values)
+            {
+                foreach (var element in elementType)
+                {
+                    foreach (var point in element.Points)
+                    {
+                        AddGeoPoint(new GeoPoint(point.Longitude, point.Latitude));
+                    }
+                }
+            }
+
+            return points;
+        }
+
         private void InvalidateStopbarVisualCache()
         {
             _visualCacheDirty = true;
+        }
+
+        private void ResetWindsockSmartPositions()
+        {
+            _windsockSmartPositions.Clear();
+            _windsockSmartPositionsInitialized = false;
         }
 
         private void RebuildWindsockRunwayCache()
@@ -1208,6 +1371,12 @@ namespace BARS.Windows
         {
             if (screenPoints.Length < 2) return;
             g.DrawLines(pen, screenPoints);
+
+            if (animState.TotalLength <= 0f || animState.ProgressLength <= 0f)
+            {
+                return;
+            }
+
             float scaledAnimationWidth = Math.Max(MIN_LINE_WIDTH, TaxiwayLineWidth * _zoomLevel * _scalingRatio);
             using (var animationPen = new Pen(TaxiwayColor, scaledAnimationWidth))
             {
@@ -1216,22 +1385,17 @@ namespace BARS.Windows
                 animationPen.LineJoin = LineJoin.Round;
 
                 float totalScreenLength = 0;
-                var segmentLengths = new List<float>();
 
                 for (int i = 1; i < screenPoints.Length; i++)
                 {
-                    float segmentLength = (float)Math.Sqrt(
-                        Math.Pow(screenPoints[i].X - screenPoints[i - 1].X, 2) +
-                        Math.Pow(screenPoints[i].Y - screenPoints[i - 1].Y, 2)
-                    );
-                    segmentLengths.Add(segmentLength);
-                    totalScreenLength += segmentLength;
+                    totalScreenLength += Distance(screenPoints[i - 1], screenPoints[i]);
                 }
 
-                if (totalScreenLength == 0) return;
+                if (totalScreenLength <= 0f) return;
 
                 float progressRatio = Math.Min(1.0f, animState.ProgressLength / animState.TotalLength);
                 float targetScreenLength = totalScreenLength * progressRatio;
+                if (targetScreenLength <= 0f) return;
 
                 float minSegmentSize = 35.0f;
                 float segmentSize = Math.Max(minSegmentSize, totalScreenLength * 0.1f);
@@ -1241,7 +1405,11 @@ namespace BARS.Windows
 
                 for (int i = screenPoints.Length - 1; i > 0; i--)
                 {
-                    float segmentLength = segmentLengths[i - 1];
+                    float segmentLength = Distance(screenPoints[i - 1], screenPoints[i]);
+                    if (segmentLength <= 0f)
+                    {
+                        continue;
+                    }
 
                     if (currentLength + segmentLength <= targetScreenLength)
                     {
@@ -1441,6 +1609,37 @@ namespace BARS.Windows
             }
         }
 
+        private PointF[] BuildLeadOnScreenPoints(LeadOnLight leadOn, RectangleF bounds, bool useAnimationDetailLimit)
+        {
+            var points = leadOn.Line.Points;
+            if (!useAnimationDetailLimit || points.Count <= LEAD_ON_ANIMATION_MAX_RENDER_POINTS)
+            {
+                var screenPoints = new PointF[points.Count];
+                for (int i = 0; i < points.Count; i++)
+                {
+                    screenPoints[i] = _mapData.GeoToScreen(points[i], bounds, _zoomLevel, _panOffset);
+                }
+                return screenPoints;
+            }
+
+            int step = Math.Max(1, (int)Math.Ceiling((points.Count - 1) / (double)(LEAD_ON_ANIMATION_MAX_RENDER_POINTS - 1)));
+            var limitedPoints = new List<PointF>(LEAD_ON_ANIMATION_MAX_RENDER_POINTS);
+
+            for (int i = 0; i < points.Count; i += step)
+            {
+                limitedPoints.Add(_mapData.GeoToScreen(points[i], bounds, _zoomLevel, _panOffset));
+            }
+
+            GeoPoint lastPoint = points[points.Count - 1];
+            PointF lastScreenPoint = _mapData.GeoToScreen(lastPoint, bounds, _zoomLevel, _panOffset);
+            if (limitedPoints.Count == 0 || Distance(limitedPoints[limitedPoints.Count - 1], lastScreenPoint) > 0.01f)
+            {
+                limitedPoints.Add(lastScreenPoint);
+            }
+
+            return limitedPoints.ToArray();
+        }
+
         private void DrawLeadOnLights(Graphics g, RectangleF bounds)
         {
             foreach (var leadOn in _mapData.LeadOnLights)
@@ -1476,13 +1675,10 @@ namespace BARS.Windows
                     pen.EndCap = LineCap.Flat;
                     pen.LineJoin = LineJoin.Round;
 
-                    var screenPoints = new PointF[leadOn.Line.Points.Count];
-                    for (int i = 0; i < leadOn.Line.Points.Count; i++)
-                    {
-                        screenPoints[i] = _mapData.GeoToScreen(leadOn.Line.Points[i], bounds, _zoomLevel, _panOffset);
-                    }
+                    bool isAnimating = animState != null && animState.IsAnimating;
+                    var screenPoints = BuildLeadOnScreenPoints(leadOn, bounds, isAnimating);
 
-                    if (animState != null && animState.IsAnimating)
+                    if (isAnimating)
                     {
                         DrawAnimatedLeadOn(g, pen, leadOn, screenPoints, animState);
                     }
@@ -1996,9 +2192,15 @@ namespace BARS.Windows
                 DrawWindsocksFallback(g, bounds);
                 return;
             }
+
+            EnsureWindsockSmartPositions(g, bounds);
             foreach (var windsock in _mapData.Windsocks)
             {
-                var screenPoint = _mapData.GeoToScreen(windsock.Position, bounds, _zoomLevel, _panOffset);
+                GeoPoint drawPosition = _windsockSmartPositions.TryGetValue(windsock, out GeoPoint smartPosition)
+                    ? smartPosition
+                    : windsock.Position;
+                var screenPoint = _mapData.GeoToScreen(drawPosition, bounds, _zoomLevel, _panOffset);
+
                 if (_isPanningOrZooming)
                 {
                     float margin = 100f;
@@ -2025,30 +2227,6 @@ namespace BARS.Windows
                     imageSize = 1;
                 }
 
-                var state = g.Save();
-
-                // Use lower quality during panning/zooming
-                if (_isPanningOrZooming)
-                {
-                    g.InterpolationMode = InterpolationMode.NearestNeighbor;
-                    g.SmoothingMode = SmoothingMode.HighSpeed;
-                    g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
-                }
-                else
-                {
-                    g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    g.SmoothingMode = SmoothingMode.HighQuality;
-                    g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-                }
-
-                // Rotate around the icon center for predictable orientation
-                g.TranslateTransform(screenPoint.X, screenPoint.Y);
-                g.RotateTransform(totalRotation);
-                g.TranslateTransform(-imageSize / 2f, -imageSize / 2f);
-
-                g.DrawImage(windsockImage, 0, 0, imageSize, imageSize);
-
-                g.Restore(state);
                 string windText = $"{windState.CurrentDirection:000} / {windState.CurrentSpeed:00}";
                 float baseFontSize = 5f;
                 float scaledFontSize = baseFontSize * _scalingRatio * _zoomLevel;
@@ -2061,9 +2239,35 @@ namespace BARS.Windows
                 using (var font = new Font("Arial", scaledFontSize, FontStyle.Bold))
                 using (var textBrush = new SolidBrush(Color.White))
                 {
-                    var textSize = g.MeasureString(windText, font);
+                    SizeF textSize = g.MeasureString(windText, font);
+                    float labelOffsetY = (imageSize / 2f) + (16 * _scalingRatio * _zoomLevel);
+
+                    var state = g.Save();
+
+                    // Use lower quality during panning/zooming
+                    if (_isPanningOrZooming)
+                    {
+                        g.InterpolationMode = InterpolationMode.NearestNeighbor;
+                        g.SmoothingMode = SmoothingMode.HighSpeed;
+                        g.PixelOffsetMode = PixelOffsetMode.HighSpeed;
+                    }
+                    else
+                    {
+                        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                        g.SmoothingMode = SmoothingMode.HighQuality;
+                        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                    }
+
+                    // Rotate around the icon center for predictable orientation
+                    g.TranslateTransform(screenPoint.X, screenPoint.Y);
+                    g.RotateTransform(totalRotation);
+                    g.TranslateTransform(-imageSize / 2f, -imageSize / 2f);
+
+                    g.DrawImage(windsockImage, 0, 0, imageSize, imageSize);
+
+                    g.Restore(state);
                     float textX = screenPoint.X - textSize.Width / 2;
-                    float textY = screenPoint.Y + (imageSize / 2) + (16 * _scalingRatio * _zoomLevel);
+                    float textY = screenPoint.Y + labelOffsetY;
                     ComputeWindComponentsForWindsock(windsock, out float crosswind, out float tailwind);
                     bool highCrosswind = crosswind > 20.0f;
                     bool tailwindAlert = tailwind >= 5.0f;
@@ -2085,6 +2289,227 @@ namespace BARS.Windows
                     g.DrawString(windText, font, textBrush, textX, textY);
                 }
             }
+        }
+
+        private WindsockObstacles BuildWindsockObstacles(RectangleF bounds)
+        {
+            var obstacles = new WindsockObstacles();
+
+            foreach (var visual in GetStopbarVisuals(bounds).Values)
+            {
+                obstacles.Rectangles.Add(InflateRect(RectFromCenter(visual.ScreenPosition, visual.ImageSize, visual.ImageSize), WINDSOCK_CLEARANCE_PX));
+            }
+
+            float taxiwayWidth = Math.Max(MIN_LINE_WIDTH, TaxiwayLineWidth * _zoomLevel * _scalingRatio) + WINDSOCK_CLEARANCE_PX;
+            AddLineObstacles(obstacles, _mapData.Taxiways?.Lines, bounds, taxiwayWidth);
+
+            float leadOnWidth = Math.Max(MIN_LINE_WIDTH, LeadOnLineWidthOn * _zoomLevel * _scalingRatio) + WINDSOCK_CLEARANCE_PX;
+            var leadOnLines = _mapData.LeadOnLights?.Select(l => l.Line);
+            AddLineObstacles(obstacles, leadOnLines, bounds, leadOnWidth);
+
+            foreach (var runwayLayer in _groundElements.Where(kvp => string.Equals(kvp.Key, "GROUND_RWY", StringComparison.OrdinalIgnoreCase)))
+            {
+                foreach (var element in runwayLayer.Value)
+                {
+                    if (element.Points.Count < 3) continue;
+                    obstacles.Polygons.Add(element.Points
+                        .Select(p => _mapData.GeoToScreen(new GeoPoint(p.Longitude, p.Latitude), bounds, _zoomLevel, _panOffset))
+                        .ToArray());
+                }
+            }
+
+            return obstacles;
+        }
+
+        private void EnsureWindsockSmartPositions(Graphics g, RectangleF bounds)
+        {
+            if (_windsockSmartPositionsInitialized || _mapData?.Windsocks == null)
+                return;
+
+            _windsockSmartPositions.Clear();
+            var obstacles = BuildWindsockObstacles(bounds);
+            var placedWindsocks = new List<RectangleF>();
+
+            foreach (var windsock in _mapData.Windsocks)
+            {
+                PointF screenPoint = _mapData.GeoToScreen(windsock.Position, bounds, _zoomLevel, _panOffset);
+                var windState = _windsockStates.ContainsKey(windsock)
+                    ? _windsockStates[windsock]
+                    : new WindState(_baseWindDirection, _baseWindSpeed);
+
+                int imageSize = Math.Max(1, (int)(12 * _scalingRatio * _zoomLevel));
+                float fontSize = 5f * _scalingRatio * _zoomLevel;
+                if (fontSize <= 0f || float.IsNaN(fontSize) || float.IsInfinity(fontSize))
+                {
+                    fontSize = 1f;
+                }
+
+                using (var font = new Font("Arial", fontSize, FontStyle.Bold))
+                {
+                    string windText = $"{windState.CurrentDirection:000} / {windState.CurrentSpeed:00}";
+                    SizeF textSize = g.MeasureString(windText, font);
+                    float labelOffsetY = (imageSize / 2f) + (16 * _scalingRatio * _zoomLevel);
+                    RectangleF originalBounds = GetWindsockElementBounds(screenPoint, imageSize, textSize, labelOffsetY);
+                    PointF smartPoint = FindSmartWindsockPosition(screenPoint, originalBounds, obstacles, placedWindsocks);
+                    RectangleF smartBounds = GetWindsockElementBounds(smartPoint, imageSize, textSize, labelOffsetY);
+
+                    _windsockSmartPositions[windsock] = _mapData.ScreenToGeo(smartPoint, bounds, _zoomLevel, _panOffset) ?? windsock.Position;
+                    placedWindsocks.Add(smartBounds);
+                }
+            }
+
+            _windsockSmartPositionsInitialized = true;
+        }
+
+        private void AddLineObstacles(WindsockObstacles obstacles, IEnumerable<GeoLine> lines, RectangleF bounds, float width)
+        {
+            if (lines == null) return;
+
+            foreach (var line in lines)
+            {
+                if (line.Points.Count < 2) continue;
+                PointF previous = _mapData.GeoToScreen(line.Points[0], bounds, _zoomLevel, _panOffset);
+                for (int i = 1; i < line.Points.Count; i++)
+                {
+                    PointF current = _mapData.GeoToScreen(line.Points[i], bounds, _zoomLevel, _panOffset);
+                    obstacles.Lines.Add(new LineObstacle(previous, current, width));
+                    previous = current;
+                }
+            }
+        }
+
+        private PointF FindSmartWindsockPosition(PointF originalCenter, RectangleF originalBounds, WindsockObstacles obstacles, List<RectangleF> placedWindsocks)
+        {
+            if (!WindsockBoundsConflict(originalBounds, obstacles, placedWindsocks))
+                return originalCenter;
+
+            float step = Math.Max(8f, Math.Max(originalBounds.Width, originalBounds.Height) * 0.35f);
+            PointF[] directions =
+            {
+                new PointF(1, 0), new PointF(-1, 0), new PointF(0, -1), new PointF(0, 1),
+                new PointF(1, -1), new PointF(-1, -1), new PointF(1, 1), new PointF(-1, 1)
+            };
+
+            for (int ring = 1; ring <= 8; ring++)
+            {
+                float distance = step * ring;
+                foreach (var direction in directions)
+                {
+                    PointF unit = NormalizeVector(direction);
+                    PointF candidate = new PointF(originalCenter.X + unit.X * distance, originalCenter.Y + unit.Y * distance);
+                    RectangleF candidateBounds = OffsetRect(originalBounds, candidate.X - originalCenter.X, candidate.Y - originalCenter.Y);
+
+                    if (IsInsideClient(candidateBounds) && !WindsockBoundsConflict(candidateBounds, obstacles, placedWindsocks))
+                        return candidate;
+                }
+            }
+
+            return originalCenter;
+        }
+
+        private RectangleF GetWindsockElementBounds(PointF center, int imageSize, SizeF textSize, float labelOffsetY)
+        {
+            RectangleF icon = RectFromCenter(center, imageSize, imageSize);
+            RectangleF label = new RectangleF(center.X - textSize.Width / 2f, center.Y + labelOffsetY, textSize.Width, textSize.Height);
+            return InflateRect(RectangleF.Union(icon, label), WINDSOCK_CLEARANCE_PX);
+        }
+
+        private bool WindsockBoundsConflict(RectangleF bounds, WindsockObstacles obstacles, List<RectangleF> placedWindsocks)
+        {
+            if (placedWindsocks.Any(r => r.IntersectsWith(bounds))) return true;
+            if (obstacles.Rectangles.Any(r => r.IntersectsWith(bounds))) return true;
+            if (obstacles.Lines.Any(l => RectIntersectsLine(bounds, l.Start, l.End, l.Width))) return true;
+            return obstacles.Polygons.Any(p => RectIntersectsPolygon(bounds, p));
+        }
+
+        private bool IsInsideClient(RectangleF bounds)
+        {
+            return bounds.Left >= 0 && bounds.Top >= 0 && bounds.Right <= Width && bounds.Bottom <= Height;
+        }
+
+        private static RectangleF RectFromCenter(PointF center, float width, float height)
+        {
+            return new RectangleF(center.X - width / 2f, center.Y - height / 2f, width, height);
+        }
+
+        private static RectangleF InflateRect(RectangleF rect, float amount)
+        {
+            rect.Inflate(amount, amount);
+            return rect;
+        }
+
+        private static RectangleF OffsetRect(RectangleF rect, float dx, float dy)
+        {
+            rect.Offset(dx, dy);
+            return rect;
+        }
+
+        private static bool RectIntersectsLine(RectangleF rect, PointF start, PointF end, float width)
+        {
+            RectangleF expanded = InflateRect(rect, width / 2f);
+            if (expanded.Contains(start) || expanded.Contains(end)) return true;
+
+            PointF topLeft = new PointF(expanded.Left, expanded.Top);
+            PointF topRight = new PointF(expanded.Right, expanded.Top);
+            PointF bottomRight = new PointF(expanded.Right, expanded.Bottom);
+            PointF bottomLeft = new PointF(expanded.Left, expanded.Bottom);
+            return SegmentsIntersect(start, end, topLeft, topRight) ||
+                   SegmentsIntersect(start, end, topRight, bottomRight) ||
+                   SegmentsIntersect(start, end, bottomRight, bottomLeft) ||
+                   SegmentsIntersect(start, end, bottomLeft, topLeft);
+        }
+
+        private static bool RectIntersectsPolygon(RectangleF rect, PointF[] polygon)
+        {
+            if (polygon == null || polygon.Length < 3) return false;
+
+            PointF[] corners =
+            {
+                new PointF(rect.Left, rect.Top), new PointF(rect.Right, rect.Top),
+                new PointF(rect.Right, rect.Bottom), new PointF(rect.Left, rect.Bottom)
+            };
+
+            if (corners.Any(c => PointInPolygon(c, polygon))) return true;
+            if (polygon.Any(p => rect.Contains(p))) return true;
+
+            for (int i = 0; i < polygon.Length; i++)
+            {
+                PointF a = polygon[i];
+                PointF b = polygon[(i + 1) % polygon.Length];
+                for (int c = 0; c < corners.Length; c++)
+                {
+                    if (SegmentsIntersect(a, b, corners[c], corners[(c + 1) % corners.Length])) return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool PointInPolygon(PointF point, PointF[] polygon)
+        {
+            bool inside = false;
+            for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                bool crosses = ((polygon[i].Y > point.Y) != (polygon[j].Y > point.Y)) &&
+                    point.X < (polygon[j].X - polygon[i].X) * (point.Y - polygon[i].Y) / (polygon[j].Y - polygon[i].Y) + polygon[i].X;
+                if (crosses) inside = !inside;
+            }
+            return inside;
+        }
+
+        private static bool SegmentsIntersect(PointF a, PointF b, PointF c, PointF d)
+        {
+            float d1 = Cross(a, b, c);
+            float d2 = Cross(a, b, d);
+            float d3 = Cross(c, d, a);
+            float d4 = Cross(c, d, b);
+            return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+                   ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+        }
+
+        private static float Cross(PointF a, PointF b, PointF c)
+        {
+            return (b.X - a.X) * (c.Y - a.Y) - (b.Y - a.Y) * (c.X - a.X);
         }
 
         private void DrawWindsocksFallback(Graphics g, RectangleF bounds)
@@ -2442,6 +2867,27 @@ namespace BARS.Windows
             public float SlideOffset { get; set; }
         }
 
+        private class WindsockObstacles
+        {
+            public List<RectangleF> Rectangles { get; } = new List<RectangleF>();
+            public List<LineObstacle> Lines { get; } = new List<LineObstacle>();
+            public List<PointF[]> Polygons { get; } = new List<PointF[]>();
+        }
+
+        private class LineObstacle
+        {
+            public LineObstacle(PointF start, PointF end, float width)
+            {
+                Start = start;
+                End = end;
+                Width = width;
+            }
+
+            public PointF Start { get; }
+            public PointF End { get; }
+            public float Width { get; }
+        }
+
         private class RunwayInfo
         {
             public GeoPoint He { get; set; }
@@ -2463,8 +2909,10 @@ namespace BARS.Windows
             StartLength = 0;
             PreviousState = false;
             IsReverse = false;
+            DurationSeconds = 1.0;
         }
 
+        public double DurationSeconds { get; set; }
         public bool IsAnimating { get; set; }
         public bool IsReverse { get; set; }
         public bool PreviousState { get; set; }

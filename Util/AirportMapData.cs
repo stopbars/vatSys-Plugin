@@ -39,15 +39,15 @@ namespace BARS.Util
             try
             {
                 XmlDocument doc = new XmlDocument();
-                // Prefer CDN
-                string xml = CdnProfiles.GetAirportXml(airportIcao);
+                // Prefer the generated INTAS profile from the API; keep local files as a fallback.
+                string xml = CdnProfiles.GetIntasProfileXml(airportIcao);
                 if (!string.IsNullOrWhiteSpace(xml))
                 {
                     doc.LoadXml(xml);
                 }
                 else
                 {
-                    // Fallback to local file if CDN index has no entry
+                    // Fallback to local file if generated INTAS XML is unavailable.
                     string xmlPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         "BARS", "vatSys", $"{airportIcao}.xml");
@@ -143,6 +143,34 @@ namespace BARS.Util
             float y = (float)rawY;
 
             return new PointF(x, y);
+        }
+
+        public GeoPoint ScreenToGeo(PointF screenPoint, RectangleF screenBounds, float zoomLevel, PointF panOffset)
+        {
+            if (CenterPoint == null || MapBounds <= 0 || zoomLevel <= 0)
+                return null;
+
+            GetMetersPerDegree(out double mPerDegLat, out double mPerDegLon);
+            double scale = (screenBounds.Width / MapBounds) * zoomLevel;
+            if (scale <= 0 || double.IsNaN(scale) || double.IsInfinity(scale))
+                return null;
+
+            double dx = (screenPoint.X - screenBounds.X - screenBounds.Width / 2 - panOffset.X) / scale;
+            double dy = -(screenPoint.Y - screenBounds.Y - screenBounds.Height / 2 - panOffset.Y) / scale;
+
+            if (Math.Abs(Rotation) > 0.001)
+            {
+                double rotationRadians = Rotation * Math.PI / 180.0;
+                double cosRot = Math.Cos(rotationRadians);
+                double sinRot = Math.Sin(rotationRadians);
+                double ux = dx * cosRot - dy * sinRot;
+                double uy = dx * sinRot + dy * cosRot;
+                dx = ux; dy = uy;
+            }
+
+            return new GeoPoint(
+                CenterPoint.Longitude + (dx / mPerDegLon),
+                CenterPoint.Latitude + (dy / mPerDegLat));
         }
 
         // Public wrapper to recompute bounds after changing rotation externally
@@ -345,7 +373,7 @@ namespace BARS.Util
                         double lat = ParseCoord(positionNode.Attributes["lat"].Value);
                         double heading = double.Parse(headingNode.InnerText, CultureInfo.InvariantCulture);
 
-                        var stopbar = new MapStopbar(barsId, displayName, new GeoPoint(lon, lat), heading);
+                        var stopbar = new MapStopbar(barsId, displayName, new GeoPoint(lon, lat), (heading - 90) % 360);
 
                         XmlNodeList leadOnNodes = stopbarNode.SelectNodes("LeadOn");
                         foreach (XmlNode leadOnNode in leadOnNodes)

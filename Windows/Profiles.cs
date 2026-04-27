@@ -47,7 +47,7 @@ namespace BARS.Windows
             this.AirportIcao = icao;
 
 
-            bool isLegacy = icao == "YSSY" || icao == "YSCB";
+            bool isLegacy = BARS.IsLegacyAirport(icao);
 
             if (isLegacy)
             {
@@ -75,6 +75,22 @@ namespace BARS.Windows
 
         public event EventHandler<ProfileSelectedEventArgs> ProfileSelected;
 
+        private void SetProfileButtonState(string profileName, bool isOpen)
+        {
+            if (!profileButtons.ContainsKey(profileName))
+            {
+                return;
+            }
+
+            var button = profileButtons[profileName];
+            button.UseVisualStyleBackColor = false;
+            button.BackColor = isOpen
+                ? Color.FromArgb(0, 128, 0)
+                : Colours.GetColour(Colours.Identities.WindowBackground);
+            button.Invalidate();
+            button.Update();
+        }
+
         public void ResetAllSelections()
         {
             SelectedProfiles.Clear();
@@ -82,7 +98,9 @@ namespace BARS.Windows
 
             foreach (var button in profileButtons.Values)
             {
+                button.UseVisualStyleBackColor = false;
                 button.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+                button.Invalidate();
             }
         }
 
@@ -98,7 +116,7 @@ namespace BARS.Windows
 
             if (profileButtons.ContainsKey(profileName))
             {
-                profileButtons[profileName].BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+                SetProfileButtonState(profileName, false);
             }
         }
 
@@ -109,7 +127,7 @@ namespace BARS.Windows
             if (BARS.IsControllerWindowOpen(AirportIcao, profileName))
             {
                 BARS.RemoveControllerWindow(AirportIcao, profileName);
-                UpdateSelectedProfileVisual(profileName);
+                ResetProfileSelection(profileName);
             }
             else
             {
@@ -120,7 +138,7 @@ namespace BARS.Windows
         public void SyncActiveProfilesStatus()
         {
 
-            bool isLegacy = AirportIcao == "YSSY" || AirportIcao == "YSCB";
+            bool isLegacy = BARS.IsLegacyAirport(AirportIcao);
 
             if (!isLegacy)
             {
@@ -129,9 +147,7 @@ namespace BARS.Windows
 
                 if (profileButtons.ContainsKey("INTAS"))
                 {
-                    profileButtons["INTAS"].BackColor = isOpen ?
-                        Color.FromArgb(0, 128, 0) :
-                        Colours.GetColour(Colours.Identities.WindowBackground);
+                    SetProfileButtonState("INTAS", isOpen);
                 }
                 return;
             }
@@ -153,12 +169,15 @@ namespace BARS.Windows
 
                     if (profileButtons.ContainsKey(profile))
                     {
-                        profileButtons[profile].BackColor = Color.FromArgb(0, 128, 0);
+                        SetProfileButtonState(profile, true);
                     }
                 }
             }
 
-            this.Invalidate();
+            pnl_profiles.Invalidate(true);
+            pnl_profiles.Update();
+            this.Invalidate(true);
+            this.Update();
         }
 
         public void UpdateSelectedProfileVisual(string profileName)
@@ -172,7 +191,7 @@ namespace BARS.Windows
 
             if (profileButtons.ContainsKey(profileName))
             {
-                profileButtons[profileName].BackColor = Color.FromArgb(0, 128, 0);
+                SetProfileButtonState(profileName, true);
             }
         }
 
@@ -195,7 +214,7 @@ namespace BARS.Windows
                 MMI.InvokeOnGUI(() =>
                 {
 
-                    bool isLegacy = AirportIcao == "YSSY" || AirportIcao == "YSCB";
+                    bool isLegacy = BARS.IsLegacyAirport(AirportIcao);
 
                     if (isLegacy)
                     {
@@ -230,6 +249,7 @@ namespace BARS.Windows
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
                 ForeColor = Colours.GetColour(Colours.Identities.InteractiveText),
+                UseVisualStyleBackColor = false,
                 Tag = originalName
             };
 
@@ -346,11 +366,24 @@ namespace BARS.Windows
             pnl_profiles.Controls.Clear();
             profileButtons.Clear();
 
-            // Fetch legacy profile names from CDN index (original names)
-            var originalProfiles = CdnProfiles.GetLegacyProfileNames(AirportIcao) ?? new List<string>();
+            List<string> originalProfiles;
+            try
+            {
+                originalProfiles = CdnProfiles.GetLegacyProfileNames(AirportIcao) ?? new List<string>();
+            }
+            catch (CdnProfiles.ProfileGenerationException ex)
+            {
+                ShowProfileMessage(ex.Message);
+                return;
+            }
 
             // Compute display formatting and stable numeric sorting
             var formatted = FormatAndSortProfiles(originalProfiles);
+            if (formatted.Count == 0)
+            {
+                ShowProfileMessage($"No vatSys profiles were generated for {AirportIcao}.");
+                return;
+            }
 
             for (int i = 0; i < formatted.Count; i++)
             {
@@ -360,14 +393,39 @@ namespace BARS.Windows
             BARS.ControllerWindowClosed += BARS_ControllerWindowClosed;
         }
 
+        private void ShowProfileMessage(string message)
+        {
+            var messageLabel = new TextLabel
+            {
+                Text = message,
+                Size = new Size(pnl_profiles.Width - 20, 60),
+                Location = new Point(10, 10),
+                Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
+                ForeColor = Colours.GetColour(Colours.Identities.InteractiveText),
+                BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+
+            pnl_profiles.Controls.Add(messageLabel);
+        }
+
         private void LoadINTASInterface()
         {
             pnl_profiles.Controls.Clear();
             profileButtons.Clear();
 
-            // Show open button if CDN has an INTAS map for this airport
-            var cdnUrl = CdnProfiles.GetAirportXmlUrl(AirportIcao);
-            if (!string.IsNullOrEmpty(cdnUrl))
+            bool hasIntasProfile;
+            try
+            {
+                hasIntasProfile = CdnProfiles.HasIntasProfile(AirportIcao);
+            }
+            catch (CdnProfiles.ProfileGenerationException ex)
+            {
+                ShowProfileMessage(ex.Message);
+                return;
+            }
+
+            if (hasIntasProfile)
             {
                 var openButton = new GenericButton
                 {
@@ -377,7 +435,8 @@ namespace BARS.Windows
                     Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                     FlatStyle = FlatStyle.Flat,
                     BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
-                    ForeColor = Colours.GetColour(Colours.Identities.InteractiveText)
+                    ForeColor = Colours.GetColour(Colours.Identities.InteractiveText),
+                    UseVisualStyleBackColor = false
                 };
 
                 openButton.Click += (s, e) =>
@@ -393,7 +452,7 @@ namespace BARS.Windows
             {
                 var noProfileLabel = new TextLabel
                 {
-                    Text = $"No online profile found for {AirportIcao}",
+                    Text = $"No generated INTAS profile found for {AirportIcao}",
                     Size = new Size(pnl_profiles.Width - 20, 60),
                     Location = new Point(10, 10),
                     Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),

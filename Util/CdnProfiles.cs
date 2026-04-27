@@ -3,88 +3,59 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace BARS.Util
 {
     public static class CdnProfiles
     {
-        private const string IndexUrl = "https://v2.stopbars.com/vatsys/profiles";
+        private const string GenerateUrl = "https://v2.stopbars.com/vatsys/profiles/generate";
+        private const string IntasFormat = "intas";
+        private const string LegacyFormat = "legacy";
         private static readonly HttpClient http = new HttpClient();
-        private static DateTime _lastFetch = DateTime.MinValue;
-        private static ProfilesIndex _cache;
-        private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(2);
-        private static Task _warmTask;
-        private static readonly ConcurrentDictionary<string, XmlCacheEntry> _xmlCache = new ConcurrentDictionary<string, XmlCacheEntry>(StringComparer.OrdinalIgnoreCase);
-        private static readonly TimeSpan XmlCacheTtl = TimeSpan.FromMinutes(10);
-        private class XmlCacheEntry
+        private static readonly ConcurrentDictionary<string, GeneratedProfilesCacheEntry> _generatedProfilesCache = new ConcurrentDictionary<string, GeneratedProfilesCacheEntry>(StringComparer.OrdinalIgnoreCase);
+        private static readonly TimeSpan GeneratedProfilesCacheTtl = TimeSpan.FromMinutes(10);
+
+        private class GeneratedProfilesCacheEntry
         {
-            public string Xml { get; set; }
+            public GeneratedProfilesResponse Response { get; set; }
+            public string ApiKey { get; set; }
             public DateTime FetchedUtc { get; set; }
         }
 
-        public class ProfilesIndex
+        private class ApiErrorResponse
         {
-            [JsonProperty("profiles")] public List<ProfileEntry> Profiles { get; set; } = new List<ProfileEntry>();
+            [JsonProperty("error")] public string Error { get; set; }
         }
 
-        public class ProfileEntry
+        public class GeneratedProfilesResponse
         {
+            [JsonProperty("format")] public string Format { get; set; }
             [JsonProperty("icao")] public string Icao { get; set; }
-            [JsonProperty("name")] public string Name { get; set; }
-            [JsonProperty("url")] public string Url { get; set; }
+            [JsonProperty("profiles")] public List<GeneratedProfile> Profiles { get; set; } = new List<GeneratedProfile>();
+            [JsonProperty("warnings")] public List<string> Warnings { get; set; } = new List<string>();
         }
 
-        public static async Task<ProfilesIndex> GetIndexAsync()
+        public class GeneratedProfile
         {
-            try
-            {
-                if (_cache != null && (DateTime.UtcNow - _lastFetch) < CacheTtl)
-                {
-                    return _cache;
-                }
-
-                var json = await http.GetStringAsync(IndexUrl).ConfigureAwait(false);
-                var idx = JsonConvert.DeserializeObject<ProfilesIndex>(json) ?? new ProfilesIndex();
-                _cache = idx;
-                _lastFetch = DateTime.UtcNow;
-                return idx;
-            }
-            catch
-            {
-                return _cache ?? new ProfilesIndex();
-            }
+            [JsonProperty("filename")] public string Filename { get; set; }
+            [JsonProperty("xml")] public string Xml { get; set; }
+            [JsonProperty("warnings")] public List<string> Warnings { get; set; } = new List<string>();
         }
 
-        /// <summary>
-        /// Fire-and-forget warmup of the CDN index to reduce first-use latency on the UI thread.
-        /// Safe to call multiple times; only the first outstanding warm-up runs.
-        /// </summary>
-        public static void WarmCacheAsync()
+        public class ProfileGenerationException : Exception
         {
-            if (_warmTask != null && !_warmTask.IsCompleted)
+            public HttpStatusCode? StatusCode { get; private set; }
+
+            public ProfileGenerationException(string message, HttpStatusCode? statusCode = null, Exception innerException = null)
+                : base(message, innerException)
             {
-                return;
+                StatusCode = statusCode;
             }
-
-            _warmTask = Task.Run(async () =>
-            {
-                try
-                {
-                    await GetIndexAsync().ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Best-effort warmup; callers still fall back to normal fetch path.
-                }
-            });
-        }
-
-        public static ProfilesIndex GetIndex()
-        {
-            // Blocking wrapper for convenience in non-async call sites
-            return GetIndexAsync().GetAwaiter().GetResult();
         }
 
         private static string NormalizeIcao(string icao)
@@ -92,138 +63,238 @@ namespace BARS.Util
             return (icao ?? string.Empty).Trim().ToUpperInvariant();
         }
 
-        private static bool TryGetCachedXml(string icao, out string xml)
+        public static string NormalizeFormat(string format)
         {
-            xml = null;
+            return (format ?? string.Empty).Trim().ToLowerInvariant();
+        }
+
+        public static bool IsIntasFormat(string format)
+        {
+            return string.Equals(NormalizeFormat(format), IntasFormat, StringComparison.Ordinal);
+        }
+
+        public static bool IsLegacyFormat(string format)
+        {
+            return string.Equals(NormalizeFormat(format), LegacyFormat, StringComparison.Ordinal);
+        }
+
+        private static bool TryGetCachedGeneratedProfiles(string icao, string apiKey, out GeneratedProfilesResponse response)
+        {
+            response = null;
             string key = NormalizeIcao(icao);
-            if (_xmlCache.TryGetValue(key, out var entry))
+            if (_generatedProfilesCache.TryGetValue(key, out var entry))
             {
-                if ((DateTime.UtcNow - entry.FetchedUtc) < XmlCacheTtl)
+                if (string.Equals(entry.ApiKey, apiKey, StringComparison.Ordinal) &&
+                    (DateTime.UtcNow - entry.FetchedUtc) < GeneratedProfilesCacheTtl)
                 {
-                    xml = entry.Xml;
+                    response = entry.Response;
                     return true;
                 }
-                _xmlCache.TryRemove(key, out _);
+
+                _generatedProfilesCache.TryRemove(key, out _);
             }
+
             return false;
         }
 
-        private static void CacheXml(string icao, string xml)
+        private static void CacheGeneratedProfiles(string icao, string apiKey, GeneratedProfilesResponse response)
         {
-            if (string.IsNullOrWhiteSpace(xml)) return;
+            if (response == null) return;
             string key = NormalizeIcao(icao);
-            _xmlCache[key] = new XmlCacheEntry
+            _generatedProfilesCache[key] = new GeneratedProfilesCacheEntry
             {
-                Xml = xml,
+                Response = response,
+                ApiKey = apiKey,
                 FetchedUtc = DateTime.UtcNow
             };
         }
 
-        public static string GetAirportXmlUrl(string icao)
+        private static string ExtractErrorMessage(string body, string fallback)
         {
-            var idx = GetIndex();
-            string wantIcao = (icao ?? string.Empty).Trim().ToUpperInvariant();
-            // Expect exact file name like "YMML.xml"
-            return idx.Profiles.FirstOrDefault(p => string.Equals(p.Icao, wantIcao, StringComparison.OrdinalIgnoreCase)
-                                                 && string.Equals(p.Name, $"{wantIcao}.xml", StringComparison.OrdinalIgnoreCase))?.Url;
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                try
+                {
+                    var error = JsonConvert.DeserializeObject<ApiErrorResponse>(body);
+                    if (!string.IsNullOrWhiteSpace(error?.Error))
+                    {
+                        return error.Error;
+                    }
+                }
+                catch
+                {
+                    // Non-JSON error responses fall through to the generic message.
+                }
+            }
+
+            return fallback;
         }
 
-        /// <summary>
-        /// Returns the airport XML, using a short-lived cache if available to avoid blocking UI on repeated opens.
-        /// Falls back to live download on cache miss.
-        /// </summary>
-        public static string GetAirportXml(string icao)
+        public static async Task<GeneratedProfilesResponse> GenerateProfilesAsync(string icao, string apiKey, bool forceRefresh = false)
         {
-            if (TryGetCachedXml(icao, out var cached))
+            string wantIcao = NormalizeIcao(icao);
+            if (string.IsNullOrWhiteSpace(wantIcao))
+            {
+                throw new ProfileGenerationException("Airport ICAO is required for vatSys profile generation.");
+            }
+
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new ProfileGenerationException("API Key is required for vatSys profile generation.");
+            }
+            apiKey = apiKey.Trim();
+
+            if (!forceRefresh && TryGetCachedGeneratedProfiles(wantIcao, apiKey, out var cached))
             {
                 return cached;
             }
 
-            string url = GetAirportXmlUrl(icao);
-            if (string.IsNullOrWhiteSpace(url))
+            try
+            {
+                using (var request = new HttpRequestMessage(HttpMethod.Post, GenerateUrl))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                    string json = JsonConvert.SerializeObject(new { icao = wantIcao });
+                    request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                    using (var response = await http.SendAsync(request).ConfigureAwait(false))
+                    {
+                        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            string message = ExtractErrorMessage(body, $"vatSys profile generation failed for {wantIcao}.");
+                            throw new ProfileGenerationException(message, response.StatusCode);
+                        }
+
+                        var generated = JsonConvert.DeserializeObject<GeneratedProfilesResponse>(body);
+                        if (generated == null)
+                        {
+                            throw new ProfileGenerationException($"vatSys profile generation returned an empty response for {wantIcao}.");
+                        }
+
+                        generated.Icao = NormalizeIcao(generated.Icao ?? wantIcao);
+                        generated.Format = NormalizeFormat(generated.Format);
+                        generated.Profiles = generated.Profiles ?? new List<GeneratedProfile>();
+                        generated.Warnings = generated.Warnings ?? new List<string>();
+                        foreach (var profile in generated.Profiles)
+                        {
+                            if (profile != null)
+                            {
+                                profile.Warnings = profile.Warnings ?? new List<string>();
+                            }
+                        }
+                        CacheGeneratedProfiles(wantIcao, apiKey, generated);
+                        return generated;
+                    }
+                }
+            }
+            catch (ProfileGenerationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new ProfileGenerationException($"Unable to generate vatSys profiles for {wantIcao}: {ex.Message}", null, ex);
+            }
+        }
+
+        public static async Task<GeneratedProfilesResponse> GenerateLegacyProfilesAsync(string icao, string apiKey, bool forceRefresh = false)
+        {
+            return await GenerateProfilesAsync(icao, apiKey, forceRefresh).ConfigureAwait(false);
+        }
+
+        public static GeneratedProfilesResponse GetGeneratedProfiles(string icao, string apiKey)
+        {
+            return GenerateProfilesAsync(icao, apiKey).GetAwaiter().GetResult();
+        }
+
+        public static GeneratedProfilesResponse GetGeneratedLegacyProfiles(string icao, string apiKey)
+        {
+            return GetGeneratedProfiles(icao, apiKey);
+        }
+
+        private static string BuildLegacyProfileFilename(string icao, string profileName)
+        {
+            string wantIcao = NormalizeIcao(icao);
+            string variant = (profileName ?? string.Empty).Replace("/", "-");
+            return $"{wantIcao}_{variant}.xml";
+        }
+
+        private static string GetLegacyProfileNameFromFilename(string icao, string filename)
+        {
+            string wantIcao = NormalizeIcao(icao);
+            if (string.IsNullOrWhiteSpace(filename) ||
+                !filename.StartsWith(wantIcao + "_", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            string xml = DownloadXml(url);
-            if (!string.IsNullOrWhiteSpace(xml))
+            string suffix = filename.Substring(wantIcao.Length + 1);
+            if (suffix.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
             {
-                CacheXml(icao, xml);
+                suffix = suffix.Substring(0, suffix.Length - ".xml".Length);
             }
-            return xml;
+
+            return suffix.Replace("-", "/");
         }
 
-        public static string GetLegacyProfileUrl(string icao, string profileName)
+        private static string BuildIntasProfileFilename(string icao)
         {
-            var idx = GetIndex();
-            string wantIcao = (icao ?? string.Empty).Trim().ToUpperInvariant();
-            string variant = (profileName ?? string.Empty).Replace("/", "-");
-            string wantName = $"{wantIcao}_{variant}.xml";
-            return idx.Profiles.FirstOrDefault(p => string.Equals(p.Icao, wantIcao, StringComparison.OrdinalIgnoreCase)
-                                                 && string.Equals(p.Name, wantName, StringComparison.OrdinalIgnoreCase))?.Url;
+            return $"{NormalizeIcao(icao)}.xml";
         }
 
-        /// <summary>
-        /// Preload airport XML in the background to reduce UI-thread blocking on first open.
-        /// Safe to call multiple times per ICAO.
-        /// </summary>
-        public static Task WarmAirportXmlAsync(string icao)
+        public static string GetIntasProfileXml(string icao)
         {
-            string key = NormalizeIcao(icao);
-            if (TryGetCachedXml(key, out _))
+            string wantFilename = BuildIntasProfileFilename(icao);
+            var generated = GetGeneratedProfiles(icao, Properties.Settings.Default.APIKey);
+            if (!IsIntasFormat(generated.Format))
             {
-                return Task.CompletedTask;
+                return null;
             }
 
-            string url = GetAirportXmlUrl(icao);
-            if (string.IsNullOrWhiteSpace(url))
+            var exactProfile = generated.Profiles.FirstOrDefault(p =>
+                p != null && string.Equals(p.Filename, wantFilename, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(exactProfile?.Xml))
             {
-                return Task.CompletedTask;
+                return exactProfile.Xml;
             }
 
-            return Task.Run(async () =>
-            {
-                try
-                {
-                    string xml = await http.GetStringAsync(url).ConfigureAwait(false);
-                    CacheXml(key, xml);
-                }
-                catch
-                {
-                    // Best-effort warmup; normal code path will still attempt on demand.
-                }
-            });
+            return generated.Profiles.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p?.Xml))?.Xml;
+        }
+
+        public static bool HasIntasProfile(string icao)
+        {
+            return !string.IsNullOrWhiteSpace(GetIntasProfileXml(icao));
         }
 
         public static List<string> GetLegacyProfileNames(string icao)
         {
-            var idx = GetIndex();
-            string wantIcao = (icao ?? string.Empty).Trim().ToUpperInvariant();
+            var generated = GetGeneratedLegacyProfiles(icao, Properties.Settings.Default.APIKey);
+            string wantIcao = NormalizeIcao(icao);
             var names = new List<string>();
-            foreach (var p in idx.Profiles.Where(p => string.Equals(p.Icao, wantIcao, StringComparison.OrdinalIgnoreCase)))
+            foreach (var p in generated.Profiles)
             {
-                if (p.Name.StartsWith(wantIcao + "_", StringComparison.OrdinalIgnoreCase))
+                if (p == null)
                 {
-                    string suffix = p.Name.Substring(wantIcao.Length + 1); // after ICAO_
-                    // Display profile using "/" instead of "-"
-                    names.Add(suffix.Replace("-", "/").Replace(".xml", string.Empty));
+                    continue;
+                }
+
+                string name = GetLegacyProfileNameFromFilename(wantIcao, p.Filename);
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    names.Add(name);
                 }
             }
             names.Sort(StringComparer.OrdinalIgnoreCase);
             return names;
         }
 
-        public static string DownloadXml(string url)
+        public static string GetLegacyProfileXml(string icao, string profileName)
         {
-            if (string.IsNullOrWhiteSpace(url)) return null;
-            try
-            {
-                return http.GetStringAsync(url).GetAwaiter().GetResult();
-            }
-            catch
-            {
-                return null;
-            }
+            string wantFilename = BuildLegacyProfileFilename(icao, profileName);
+            var generated = GetGeneratedLegacyProfiles(icao, Properties.Settings.Default.APIKey);
+            return generated.Profiles.FirstOrDefault(p =>
+                p != null && string.Equals(p.Filename, wantFilename, StringComparison.OrdinalIgnoreCase))?.Xml;
         }
     }
 }

@@ -25,12 +25,8 @@ namespace BARS
         public CustomToolStripMenuItem configMenu;
         private const int MAX_AIRPORTS = 5;
 
-        private static readonly HashSet<string> SupportedAirports = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "YSSY", "YPPH", "YBBN", "YSCB", "YMML"
-        };
-
         private static Dictionary<string, string> ActiveProfiles = new Dictionary<string, string>();
+        private static Dictionary<string, string> AirportProfileFormats = new Dictionary<string, string>();
         private static List<Controller_INTAS> INTASWindows = new List<Controller_INTAS>();
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
         private readonly Logger logger = new Logger("BARS for vatSys");
@@ -50,8 +46,6 @@ namespace BARS
 
             netManager.Initialize(Properties.Settings.Default.APIKey);
 
-            CdnProfiles.WarmCacheAsync();
-
             logger.Log("Starting BARS for vatSys...");
             _ = Start();
         }
@@ -65,23 +59,23 @@ namespace BARS
         public string DisplayName => "BARS for vatSys";
         public string Name => "BARS for vatSys";
 
+        public static bool IsLegacyAirport(string icao)
+        {
+            string formattedIcao = (icao ?? string.Empty).Trim().ToUpper();
+            if (AirportProfileFormats.TryGetValue(formattedIcao, out var format))
+            {
+                return CdnProfiles.IsLegacyFormat(format);
+            }
+
+            return LegacyWindows.Any(c => c.Airport == formattedIcao);
+        }
+
         public static async Task<bool> AddAirport(string icao)
         {
             if (string.IsNullOrWhiteSpace(icao))
-                return false; string formattedIcao = icao.Trim().ToUpper();
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
-
-            // Validate supported airports
-            if (!SupportedAirports.Contains(formattedIcao))
-            {
-                MessageBox.Show(
-                    "BARS vatSys only supports australian airports.",
-                    "Unsupported Airport",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
                 return false;
-            }
+
+            string formattedIcao = icao.Trim().ToUpper();
 
             if (ControlledAirports.Contains(formattedIcao))
                 return false;
@@ -89,32 +83,70 @@ namespace BARS
             if (ControlledAirports.Count >= MAX_AIRPORTS)
                 return false;
 
+            CdnProfiles.GeneratedProfilesResponse generated;
+            try
+            {
+                generated = await CdnProfiles.GenerateProfilesAsync(
+                    formattedIcao,
+                    Properties.Settings.Default.APIKey,
+                    forceRefresh: true
+                );
+
+                if (generated.Profiles == null || generated.Profiles.Count == 0)
+                {
+                    MessageBox.Show(
+                        $"No vatSys profiles were generated for {formattedIcao}.",
+                        "Profile Generation Unavailable",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                    return false;
+                }
+
+                if (!CdnProfiles.IsLegacyFormat(generated.Format) && !CdnProfiles.IsIntasFormat(generated.Format))
+                {
+                    MessageBox.Show(
+                        $"Generated profiles for {formattedIcao} returned unsupported format '{generated.Format}'.",
+                        "Profile Generation Unavailable",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error
+                    );
+                    return false;
+                }
+            }
+            catch (CdnProfiles.ProfileGenerationException ex)
+            {
+                MessageBox.Show(
+                    ex.Message,
+                    "Profile Generation Unavailable",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+                return false;
+            }
+
             var netHandler = await NetManager.Instance.ConnectAirport(formattedIcao, Network.ControllerId);
             if (netHandler == null)
             {
                 return false;
             }
 
+            AirportProfileFormats[formattedIcao] = generated.Format;
             ControlledAirports.Add(formattedIcao);
             if (config != null && !config.IsDisposed)
             {
                 config.SyncAirportList();
             }
 
-            if (!isLegacy)
-            {
-                _ = CdnProfiles.WarmAirportXmlAsync(formattedIcao);
-            }
-
             MMI.InvokeOnGUI(() =>
             {
-                if (isLegacy)
+                if (CdnProfiles.IsIntasFormat(generated.Format))
                 {
-                    ShowProfilesWindow(formattedIcao);
+                    OpenINTASAirport(formattedIcao);
                 }
                 else
                 {
-                    OpenINTASAirport(formattedIcao);
+                    ShowProfilesWindow(formattedIcao);
                 }
             });
 
@@ -127,11 +159,39 @@ namespace BARS
             {
                 config = new Config();
             }
-            else if (config.Visible)
+
+            ShowAndActivate(config);
+        }
+
+        private static void ShowAndActivate(Form form)
+        {
+            if (form == null || form.IsDisposed)
             {
                 return;
             }
-            config.Show(Form.ActiveForm);
+
+            if (form.WindowState == FormWindowState.Minimized)
+            {
+                form.WindowState = FormWindowState.Normal;
+            }
+
+            if (!form.Visible)
+            {
+                Form owner = Form.ActiveForm;
+                if (owner != null && !ReferenceEquals(owner, form) && !owner.IsDisposed)
+                {
+                    form.Show(owner);
+                }
+                else
+                {
+                    form.Show();
+                }
+            }
+
+            form.BringToFront();
+            form.Activate();
+            form.Invalidate(true);
+            form.Update();
         }
 
         public static string GetActiveProfile(string airport)
@@ -149,7 +209,7 @@ namespace BARS
             List<string> result = new List<string>();
 
             string formattedIcao = airport.Trim().ToUpper();
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+            bool isLegacy = IsLegacyAirport(formattedIcao);
 
             if (isLegacy)
             {
@@ -181,7 +241,7 @@ namespace BARS
         public static bool IsControllerWindowOpen(string airport, string profile)
         {
             string formattedIcao = airport.Trim().ToUpper();
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+            bool isLegacy = IsLegacyAirport(formattedIcao);
 
             if (isLegacy)
             {
@@ -207,7 +267,7 @@ namespace BARS
                 ActiveProfiles.Add(formattedIcao, profileName);
             }
 
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+            bool isLegacy = IsLegacyAirport(formattedIcao);
 
             if (isLegacy)
             {
@@ -216,15 +276,14 @@ namespace BARS
 
                 if (existingController != null)
                 {
-                    existingController.Show(Form.ActiveForm);
-                    existingController.BringToFront();
+                    ShowAndActivate(existingController);
                     return;
                 }
 
                 Controller_Legacy newController = new Controller_Legacy(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 LegacyWindows.Add(newController);
-                newController.Show(Form.ActiveForm);
+                ShowAndActivate(newController);
             }
             else
             {
@@ -233,15 +292,14 @@ namespace BARS
 
                 if (existingController != null)
                 {
-                    existingController.Show(Form.ActiveForm);
-                    existingController.BringToFront();
+                    ShowAndActivate(existingController);
                     return;
                 }
 
                 Controller_INTAS newController = new Controller_INTAS(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 INTASWindows.Add(newController);
-                newController.Show(Form.ActiveForm);
+                ShowAndActivate(newController);
             }
 
             var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
@@ -259,12 +317,19 @@ namespace BARS
             if (!ControlledAirports.Contains(formattedIcao))
                 return;
 
-            // Gate on CDN availability instead of local file
-            string url = CdnProfiles.GetAirportXmlUrl(formattedIcao);
-            if (string.IsNullOrEmpty(url))
+            try
             {
-                MessageBox.Show($"No online profile found for {formattedIcao}.",
-                    "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (!CdnProfiles.HasIntasProfile(formattedIcao))
+                {
+                    MessageBox.Show($"No generated INTAS profile found for {formattedIcao}.",
+                        "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+            }
+            catch (CdnProfiles.ProfileGenerationException ex)
+            {
+                MessageBox.Show(ex.Message,
+                    "Profile Generation Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -272,15 +337,14 @@ namespace BARS
 
             if (existingController != null)
             {
-                existingController.Show(Form.ActiveForm);
-                existingController.BringToFront();
+                ShowAndActivate(existingController);
                 return;
             }
 
             Controller_INTAS newController = new Controller_INTAS(formattedIcao, formattedIcao);
             newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, formattedIcao);
             INTASWindows.Add(newController);
-            newController.Show(Form.ActiveForm);
+            ShowAndActivate(newController);
         }
 
         public static async Task RemoveAirport(string icao)
@@ -302,12 +366,13 @@ namespace BARS
 
             // Remove all controller windows for this airport
             RemoveControllerWindows(formattedIcao);
+            AirportProfileFormats.Remove(formattedIcao);
         }
 
         public static void RemoveControllerWindow(string airport, string profile)
         {
             string formattedIcao = airport.Trim().ToUpper();
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+            bool isLegacy = IsLegacyAirport(formattedIcao);
 
             if (isLegacy)
             {
@@ -348,7 +413,7 @@ namespace BARS
                 ActiveProfiles.Remove(formattedIcao);
             }
 
-            if (formattedIcao == "YSSY" || formattedIcao == "YSCB")
+            if (IsLegacyAirport(formattedIcao))
             {
                 var controllersToRemove = LegacyWindows.Where(c => c.Airport == formattedIcao).ToList();
                 foreach (var controller in controllersToRemove)
@@ -383,7 +448,7 @@ namespace BARS
                 ActiveProfiles.Remove(formattedIcao);
             }
 
-            bool isLegacy = formattedIcao == "YSSY" || formattedIcao == "YSCB";
+            bool isLegacy = IsLegacyAirport(formattedIcao);
             if (isLegacy)
             {
                 Controller_Legacy controllerToRemove = LegacyWindows.FirstOrDefault(c =>
@@ -419,8 +484,7 @@ namespace BARS
             var existingWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == icao);
             if (existingWindow != null && !existingWindow.IsDisposed)
             {
-                existingWindow.Show(Form.ActiveForm);
-                existingWindow.BringToFront();
+                ShowAndActivate(existingWindow);
 
                 existingWindow.SyncActiveProfilesStatus();
                 return;
@@ -441,7 +505,7 @@ namespace BARS
             };
 
             ProfileWindows.Add(profileWindow);
-            profileWindow.Show(Form.ActiveForm);
+            ShowAndActivate(profileWindow);
         }
 
         public static void UpdateApiKey(string newApiKey)
@@ -468,8 +532,6 @@ namespace BARS
                 ActiveProfiles.Remove(airport);
             }
 
-            ControllerWindowClosed?.Invoke(null, new ControllerWindowEventArgs(airport, profile));
-
             if (sender is Controller_Legacy legacyController)
             {
                 LegacyWindows.Remove(legacyController);
@@ -478,6 +540,8 @@ namespace BARS
             {
                 INTASWindows.Remove(intasController);
             }
+
+            ControllerWindowClosed?.Invoke(null, new ControllerWindowEventArgs(airport, profile));
 
             UpdateProfileWindowSelections(airport, profile);
         }

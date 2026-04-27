@@ -106,7 +106,7 @@ namespace BARS.Windows
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 ForeColor = Colours.GetColour(Colours.Identities.InteractiveText)
             };
-            bool isLegacy = icao == "YSSY" || icao == "YSCB";
+            bool isLegacy = BARS.IsLegacyAirport(icao);
 
             var btnProfiles = new GenericButton
             {
@@ -125,7 +125,7 @@ namespace BARS.Windows
                 if (s is GenericButton btn)
                 {
                     string airportIcao = btn.Tag.ToString();
-                    bool isLegacyAirport = airportIcao == "YSSY" || airportIcao == "YSCB";
+                    bool isLegacyAirport = BARS.IsLegacyAirport(airportIcao);
 
                     if (isLegacyAirport)
                     {
