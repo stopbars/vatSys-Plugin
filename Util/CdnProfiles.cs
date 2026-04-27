@@ -162,7 +162,20 @@ namespace BARS.Util
                         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                         if (!response.IsSuccessStatusCode)
                         {
-                            string message = ExtractErrorMessage(body, $"vatSys profile generation failed for {wantIcao}.");
+                            string message;
+                            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                            {
+                                message = "API Key is invalid. Update your BARS API key and try again.";
+                            }
+                            else if (response.StatusCode == HttpStatusCode.Forbidden)
+                            {
+                                message = "API Key is not authorized to generate vatSys profiles.";
+                            }
+                            else
+                            {
+                                message = ExtractErrorMessage(body, $"vatSys profile generation failed for {wantIcao}.");
+                            }
+
                             throw new ProfileGenerationException(message, response.StatusCode);
                         }
 

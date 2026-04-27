@@ -238,7 +238,10 @@ namespace BARS.Windows
 
                 StoreOriginalControlInfo(this);
 
-                airportMapControl.LoadAirportMap(this.Airport);
+                if (!airportMapControl.LoadAirportMap(this.Airport))
+                {
+                    throw new InvalidOperationException(airportMapControl.LastLoadError ?? "Airport map data could not be loaded.");
+                }
 
                 airportMapControl.StopbarClicked += AirportMapControl_StopbarClicked;
 
@@ -262,6 +265,7 @@ namespace BARS.Windows
             {
                 MessageBox.Show($"Failed to load airport map for {this.Airport}: {ex.Message}",
                     "Map Loading Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                BeginInvoke(new Action(Close));
             }
         }
 

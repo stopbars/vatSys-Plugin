@@ -27,6 +27,8 @@ namespace BARS
 
         private static Dictionary<string, string> ActiveProfiles = new Dictionary<string, string>();
         private static Dictionary<string, string> AirportProfileFormats = new Dictionary<string, string>();
+        private static readonly object AirportStateLock = new object();
+        private static readonly HashSet<string> AirportsBeingAdded = new HashSet<string>();
         private static List<Controller_INTAS> INTASWindows = new List<Controller_INTAS>();
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
         private readonly Logger logger = new Logger("BARS for vatSys");
@@ -77,25 +79,58 @@ namespace BARS
 
             string formattedIcao = icao.Trim().ToUpper();
 
-            if (ControlledAirports.Contains(formattedIcao))
-                return false;
+            lock (AirportStateLock)
+            {
+                if (ControlledAirports.Contains(formattedIcao) || AirportsBeingAdded.Contains(formattedIcao))
+                {
+                    return false;
+                }
 
-            if (ControlledAirports.Count >= MAX_AIRPORTS)
-                return false;
+                if (ControlledAirports.Count + AirportsBeingAdded.Count >= MAX_AIRPORTS)
+                {
+                    return false;
+                }
 
-            CdnProfiles.GeneratedProfilesResponse generated;
+                AirportsBeingAdded.Add(formattedIcao);
+            }
+
             try
             {
-                generated = await CdnProfiles.GenerateProfilesAsync(
-                    formattedIcao,
-                    Properties.Settings.Default.APIKey,
-                    forceRefresh: true
-                );
+                CdnProfiles.GeneratedProfilesResponse generated;
+                try
+                {
+                    generated = await CdnProfiles.GenerateProfilesAsync(
+                        formattedIcao,
+                        Properties.Settings.Default.APIKey,
+                        forceRefresh: true
+                    );
 
-                if (generated.Profiles == null || generated.Profiles.Count == 0)
+                    if (generated.Profiles == null || generated.Profiles.Count == 0)
+                    {
+                        MessageBox.Show(
+                            $"No vatSys profiles were generated for {formattedIcao}.",
+                            "Profile Generation Unavailable",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                        return false;
+                    }
+
+                    if (!CdnProfiles.IsLegacyFormat(generated.Format) && !CdnProfiles.IsIntasFormat(generated.Format))
+                    {
+                        MessageBox.Show(
+                            $"Generated profiles for {formattedIcao} returned unsupported format '{generated.Format}'.",
+                            "Profile Generation Unavailable",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                        return false;
+                    }
+                }
+                catch (CdnProfiles.ProfileGenerationException ex)
                 {
                     MessageBox.Show(
-                        $"No vatSys profiles were generated for {formattedIcao}.",
+                        ex.Message,
                         "Profile Generation Unavailable",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Error
@@ -103,54 +138,49 @@ namespace BARS
                     return false;
                 }
 
-                if (!CdnProfiles.IsLegacyFormat(generated.Format) && !CdnProfiles.IsIntasFormat(generated.Format))
+                var netHandler = await NetManager.Instance.ConnectAirport(formattedIcao, Network.ControllerId);
+                if (netHandler == null)
                 {
-                    MessageBox.Show(
-                        $"Generated profiles for {formattedIcao} returned unsupported format '{generated.Format}'.",
-                        "Profile Generation Unavailable",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error
-                    );
                     return false;
                 }
-            }
-            catch (CdnProfiles.ProfileGenerationException ex)
-            {
-                MessageBox.Show(
-                    ex.Message,
-                    "Profile Generation Unavailable",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-                return false;
-            }
 
-            var netHandler = await NetManager.Instance.ConnectAirport(formattedIcao, Network.ControllerId);
-            if (netHandler == null)
-            {
-                return false;
-            }
-
-            AirportProfileFormats[formattedIcao] = generated.Format;
-            ControlledAirports.Add(formattedIcao);
-            if (config != null && !config.IsDisposed)
-            {
-                config.SyncAirportList();
-            }
-
-            MMI.InvokeOnGUI(() =>
-            {
-                if (CdnProfiles.IsIntasFormat(generated.Format))
+                lock (AirportStateLock)
                 {
-                    OpenINTASAirport(formattedIcao);
-                }
-                else
-                {
-                    ShowProfilesWindow(formattedIcao);
-                }
-            });
+                    if (ControlledAirports.Contains(formattedIcao))
+                    {
+                        return false;
+                    }
 
-            return true;
+                    AirportProfileFormats[formattedIcao] = generated.Format;
+                    ControlledAirports.Add(formattedIcao);
+                }
+
+                if (config != null && !config.IsDisposed)
+                {
+                    config.SyncAirportList();
+                }
+
+                MMI.InvokeOnGUI(() =>
+                {
+                    if (CdnProfiles.IsIntasFormat(generated.Format))
+                    {
+                        OpenINTASAirport(formattedIcao);
+                    }
+                    else
+                    {
+                        ShowProfilesWindow(formattedIcao);
+                    }
+                });
+
+                return true;
+            }
+            finally
+            {
+                lock (AirportStateLock)
+                {
+                    AirportsBeingAdded.Remove(formattedIcao);
+                }
+            }
         }
 
         public static void DoShowBARS()
@@ -202,6 +232,27 @@ namespace BARS
                 return ActiveProfiles[formattedIcao];
             }
             return null;
+        }
+
+        private static void SetActiveProfile(string formattedIcao, string profileName)
+        {
+            if (ActiveProfiles.ContainsKey(formattedIcao))
+            {
+                ActiveProfiles[formattedIcao] = profileName;
+            }
+            else
+            {
+                ActiveProfiles.Add(formattedIcao, profileName);
+            }
+        }
+
+        private static void SyncProfileWindowStatus(string formattedIcao)
+        {
+            var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
+            if (profileWindow != null && !profileWindow.IsDisposed)
+            {
+                MMI.InvokeOnGUI(() => profileWindow.SyncActiveProfilesStatus());
+            }
         }
 
         public static List<string> GetOpenProfiles(string airport)
@@ -258,15 +309,6 @@ namespace BARS
             if (string.IsNullOrWhiteSpace(airport) || string.IsNullOrWhiteSpace(profileName))
                 return; string formattedIcao = airport.Trim().ToUpper();
 
-            if (ActiveProfiles.ContainsKey(formattedIcao))
-            {
-                ActiveProfiles[formattedIcao] = profileName;
-            }
-            else
-            {
-                ActiveProfiles.Add(formattedIcao, profileName);
-            }
-
             bool isLegacy = IsLegacyAirport(formattedIcao);
 
             if (isLegacy)
@@ -276,10 +318,31 @@ namespace BARS
 
                 if (existingController != null)
                 {
+                    SetActiveProfile(formattedIcao, profileName);
                     ShowAndActivate(existingController);
                     return;
                 }
 
+                try
+                {
+                    string xml = CdnProfiles.GetLegacyProfileXml(formattedIcao, profileName);
+                    if (string.IsNullOrWhiteSpace(xml))
+                    {
+                        MessageBox.Show($"Generated profile not found for {formattedIcao} - {profileName}",
+                            "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        SyncProfileWindowStatus(formattedIcao);
+                        return;
+                    }
+                }
+                catch (CdnProfiles.ProfileGenerationException ex)
+                {
+                    MessageBox.Show(ex.Message,
+                        "Profile Generation Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SyncProfileWindowStatus(formattedIcao);
+                    return;
+                }
+
+                SetActiveProfile(formattedIcao, profileName);
                 Controller_Legacy newController = new Controller_Legacy(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 LegacyWindows.Add(newController);
@@ -292,21 +355,37 @@ namespace BARS
 
                 if (existingController != null)
                 {
+                    SetActiveProfile(formattedIcao, profileName);
                     ShowAndActivate(existingController);
                     return;
                 }
 
+                try
+                {
+                    if (!CdnProfiles.HasIntasProfile(formattedIcao))
+                    {
+                        MessageBox.Show($"No generated INTAS profile found for {formattedIcao}.",
+                            "Profile Not Found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        SyncProfileWindowStatus(formattedIcao);
+                        return;
+                    }
+                }
+                catch (CdnProfiles.ProfileGenerationException ex)
+                {
+                    MessageBox.Show(ex.Message,
+                        "Profile Generation Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    SyncProfileWindowStatus(formattedIcao);
+                    return;
+                }
+
+                SetActiveProfile(formattedIcao, profileName);
                 Controller_INTAS newController = new Controller_INTAS(formattedIcao, profileName);
                 newController.FormClosed += (s, e) => HandleControllerWindowClosed(s, formattedIcao, profileName);
                 INTASWindows.Add(newController);
                 ShowAndActivate(newController);
             }
 
-            var profileWindow = ProfileWindows.FirstOrDefault(p => p.AirportIcao == formattedIcao);
-            if (profileWindow != null && !profileWindow.IsDisposed)
-            {
-                MMI.InvokeOnGUI(() => profileWindow.SyncActiveProfilesStatus());
-            }
+            SyncProfileWindowStatus(formattedIcao);
         }
 
         public static void OpenINTASAirport(string icao)

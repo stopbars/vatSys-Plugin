@@ -30,6 +30,7 @@ namespace BARS.Windows
         private const float MIN_LINE_WIDTH = 0.5f;
         private const float MIN_ZOOM = 0.1f;
         private const int STOPBAR_BASE_SIZE = 16;
+        private const int STOPBAR_CLICK_MOVE_TOLERANCE = 4;
         private const float STOPBAR_MAX_SLIDE = 3f;
         private const float WINDSOCK_CLEARANCE_PX = 4f;
         private const float TaxiwayLineWidth = 1.0f;
@@ -61,6 +62,9 @@ namespace BARS.Windows
         private bool _isVariableWind = false;
 
         private Point _lastMousePosition;
+        private MouseButtons _stopbarMouseDownButton = MouseButtons.None;
+        private string _stopbarMouseDownBarsId;
+        private Point _stopbarMouseDownLocation;
         private Dictionary<string, LeadOnAnimationState> _leadOnAnimations = new Dictionary<string, LeadOnAnimationState>();
         private readonly Random _leadOnAnimationRandom = new Random();
         private AirportMapData _mapData;
@@ -175,6 +179,8 @@ namespace BARS.Windows
             return _defaultCountdownSeconds;
         }
 
+        public string LastLoadError { get; private set; }
+
         public PointF GetPan()
         {
             return _panOffset;
@@ -280,10 +286,11 @@ namespace BARS.Windows
             return _zoomLevel;
         }
 
-        public void LoadAirportMap(string airportIcao)
+        public bool LoadAirportMap(string airportIcao)
         {
             try
             {
+                LastLoadError = null;
                 _mapData = AirportMapData.LoadFromXml(airportIcao);
                 ResetStopbarSlides();
                 InvalidateStopbarVisualCache();
@@ -302,13 +309,25 @@ namespace BARS.Windows
                 Invalidate();
 
                 _ = FetchRunwaysAsync(airportIcao);
+                return true;
             }
-            catch (Exception ex)
+            catch (CdnProfiles.ProfileGenerationException ex)
             {
+                LastLoadError = ex.Message;
                 _logger.Error($"Failed to load airport map for {airportIcao}: {ex.Message}");
                 _mapData = null;
                 _windsockNearestRunway.Clear();
                 Invalidate();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastLoadError = ex.Message;
+                _logger.Error($"Failed to load airport map for {airportIcao}: {ex.Message}");
+                _mapData = null;
+                _windsockNearestRunway.Clear();
+                Invalidate();
+                return false;
             }
         }
 
@@ -751,23 +770,6 @@ namespace BARS.Windows
             base.Dispose(disposing);
         }
 
-        protected override void OnMouseClick(MouseEventArgs e)
-        {
-            base.OnMouseClick(e);
-
-            this.Focus();
-            if (e.Button != MouseButtons.Middle)
-            {
-                var clickedStopbar = GetStopbarAtPoint(e.Location);
-                if (clickedStopbar != null)
-                {
-                    _logger.Log($"Stopbar {clickedStopbar.BarsId} clicked with {e.Button}, current state: {clickedStopbar.State}");
-
-                    StopbarClicked?.Invoke(this, new StopbarClickEventArgs(clickedStopbar.BarsId, e.Button));
-                }
-            }
-        }
-
         protected override void OnMouseDoubleClick(MouseEventArgs e)
         {
             base.OnMouseDoubleClick(e);
@@ -791,6 +793,13 @@ namespace BARS.Windows
                 _lastMousePosition = e.Location;
                 this.Cursor = Cursors.SizeAll;
             }
+            else if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Right)
+            {
+                var pressedStopbar = GetStopbarAtPoint(e.Location);
+                _stopbarMouseDownBarsId = pressedStopbar?.BarsId;
+                _stopbarMouseDownButton = pressedStopbar == null ? MouseButtons.None : e.Button;
+                _stopbarMouseDownLocation = e.Location;
+            }
         }
 
         protected override void OnMouseLeave(EventArgs e)
@@ -803,6 +812,8 @@ namespace BARS.Windows
                 _isPanningOrZooming = false;
                 this.Cursor = Cursors.Default;
             }
+
+            ClearPendingStopbarClick();
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -835,6 +846,34 @@ namespace BARS.Windows
                 this.Cursor = Cursors.Default;
                 Invalidate();
             }
+            else if ((e.Button == MouseButtons.Left || e.Button == MouseButtons.Right) &&
+                     e.Button == _stopbarMouseDownButton &&
+                     !string.IsNullOrEmpty(_stopbarMouseDownBarsId))
+            {
+                var releasedStopbar = GetStopbarAtPoint(e.Location);
+                if (releasedStopbar != null &&
+                    string.Equals(releasedStopbar.BarsId, _stopbarMouseDownBarsId, StringComparison.OrdinalIgnoreCase) &&
+                    IsWithinClickMoveTolerance(_stopbarMouseDownLocation, e.Location))
+                {
+                    _logger.Log($"Stopbar {releasedStopbar.BarsId} clicked with {e.Button}, current state: {releasedStopbar.State}");
+                    StopbarClicked?.Invoke(this, new StopbarClickEventArgs(releasedStopbar.BarsId, e.Button));
+                }
+
+                ClearPendingStopbarClick();
+            }
+        }
+
+        private void ClearPendingStopbarClick()
+        {
+            _stopbarMouseDownBarsId = null;
+            _stopbarMouseDownButton = MouseButtons.None;
+            _stopbarMouseDownLocation = Point.Empty;
+        }
+
+        private static bool IsWithinClickMoveTolerance(Point start, Point end)
+        {
+            return Math.Abs(end.X - start.X) <= STOPBAR_CLICK_MOVE_TOLERANCE &&
+                   Math.Abs(end.Y - start.Y) <= STOPBAR_CLICK_MOVE_TOLERANCE;
         }
 
         protected override void OnResize(EventArgs e)

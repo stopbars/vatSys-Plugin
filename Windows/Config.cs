@@ -12,6 +12,7 @@ namespace BARS.Windows
         private const int AIRPORT_ENTRY_HEIGHT = 30;
         private const int AIRPORT_ENTRY_SPACING = 5;
         private const int MAX_AIRPORTS = 5;
+        private bool isAddingAirport = false;
 
         public Config()
         {
@@ -45,8 +46,14 @@ namespace BARS.Windows
 
         private async Task AddAirport(string icao)
         {
+            if (isAddingAirport)
+            {
+                return;
+            }
+
             try
             {
+                isAddingAirport = true;
                 btn_add.Enabled = false;
                 btn_add.Size = new Size(82, 24);
                 btn_add.Text = "ADDING...";
@@ -60,6 +67,7 @@ namespace BARS.Windows
             }
             finally
             {
+                isAddingAirport = false;
                 btn_add.Enabled = true;
                 btn_add.Size = new Size(48, 24);
                 btn_add.Text = "ADD";
@@ -73,6 +81,11 @@ namespace BARS.Windows
 
         private void btn_add_Click(object sender, EventArgs e)
         {
+            if (isAddingAirport)
+            {
+                return;
+            }
+
             string icao = txt_icao.Text.Trim().ToUpper();
             if (!string.IsNullOrWhiteSpace(icao))
             {
@@ -194,6 +207,7 @@ namespace BARS.Windows
         {
             if (e.KeyChar == (char)Keys.Enter)
             {
+                e.Handled = true;
                 btn_add_Click(sender, e);
                 return;
             }

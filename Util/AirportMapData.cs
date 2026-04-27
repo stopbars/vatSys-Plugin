@@ -72,6 +72,10 @@ namespace BARS.Util
 
                 return mapData;
             }
+            catch (CdnProfiles.ProfileGenerationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 throw new Exception($"Error loading airport map data: {ex.Message}", ex);
