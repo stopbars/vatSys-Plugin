@@ -39,6 +39,7 @@ namespace BARS.Util
         private System.Timers.Timer _heartbeatTimer;
         private bool _isConnected = false;
         private DateTime _lastHeartbeatReceived;
+        private long _lastOnlinePilotsTimestamp;
         private DateTime _lastSnapshotRequest = DateTime.MinValue;
         private CancellationTokenSource _snapshotBurstCts;
 
@@ -131,6 +132,7 @@ namespace BARS.Util
             {
                 _cancellationTokenSource = new CancellationTokenSource();
                 _webSocket = new ClientWebSocket();
+                _lastOnlinePilotsTimestamp = 0;
 
                 // Create connection URL with parameters
                 string wsUrl = $"wss://v2.stopbars.com/connect?key={_apiKey}&airport={_airport}";
@@ -148,6 +150,11 @@ namespace BARS.Util
 
                 // Start the message receiving loop
                 _ = ReceiveMessagesAsync();
+
+                if (Properties.Settings.Default.ShowBARSPilots)
+                {
+                    _ = RequestOnlinePilots();
+                }
 
                 // Log connection
                 logger.Log($"Connected to BARS server for airport {_airport}");
@@ -184,6 +191,11 @@ namespace BARS.Util
         // Disconnect from the WebSocket server
         public async Task Disconnect()
         {
+            if (PilotPresenceStore.ClearAirport(_airport))
+            {
+                vatsys.MMI.RequestRedraw(false, false, false);
+            }
+
             var socket = _webSocket;
             if (socket == null)
             {
@@ -322,6 +334,19 @@ namespace BARS.Util
         public bool IsConnected()
         {
             return _isConnected && _webSocket != null && _webSocket.State == WebSocketState.Open;
+        }
+
+        public Task RequestOnlinePilots()
+        {
+            if (!Properties.Settings.Default.ShowBARSPilots || !IsConnected())
+            {
+                return Task.CompletedTask;
+            }
+
+            return SendPacket(new
+            {
+                type = "GET_ONLINE_PILOTS"
+            });
         }
 
         /// <summary>
@@ -779,6 +804,10 @@ namespace BARS.Util
                         logger.Log($"Controller {disconnectedId} disconnected from airport {_airport}");
                         break;
 
+                    case "ONLINE_PILOTS":
+                        ProcessOnlinePilots(message as JObject);
+                        break;
+
                     case "STOPBAR_CROSSING":
                         {
                             string objectId = message.data.objectId;
@@ -1000,6 +1029,57 @@ namespace BARS.Util
                 OnError?.Invoke(this, $"State snapshot processing error: {ex.Message}");
                 logger.Error($"State snapshot processing error: {ex.Message}");
             }
+        }
+
+        private void ProcessOnlinePilots(JObject message)
+        {
+            if (message == null || !Properties.Settings.Default.ShowBARSPilots)
+            {
+                return;
+            }
+
+            string responseAirport = message.Value<string>("airport");
+            if (string.IsNullOrWhiteSpace(responseAirport) ||
+                !string.Equals(responseAirport, _airport, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.Log($"Ignored ONLINE_PILOTS response for unexpected airport '{responseAirport}'.");
+                return;
+            }
+
+            JToken pilotsToken = message["data"]?["pilots"];
+            if (!(pilotsToken is JArray pilots))
+            {
+                logger.Log("Ignored malformed ONLINE_PILOTS response without a pilots array.");
+                return;
+            }
+
+            long responseTimestamp = message.Value<long?>("timestamp") ?? 0;
+            if (responseTimestamp > 0 && responseTimestamp < _lastOnlinePilotsTimestamp)
+            {
+                logger.Log($"Ignored stale ONLINE_PILOTS response for {_airport}.");
+                return;
+            }
+
+            var callsigns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (JToken pilot in pilots)
+            {
+                string callsign = pilot?["callsign"]?.Value<string>();
+                if (!string.IsNullOrWhiteSpace(callsign))
+                {
+                    callsigns.Add(callsign.Trim());
+                }
+            }
+
+            if (responseTimestamp > 0)
+            {
+                _lastOnlinePilotsTimestamp = responseTimestamp;
+            }
+
+            if (PilotPresenceStore.UpdateAirport(_airport, callsigns))
+            {
+                vatsys.MMI.RequestRedraw(false, false, false);
+            }
+            logger.Log($"Received {callsigns.Count} online BARS pilot(s) for {_airport}.");
         }
 
         // Process state updates from other controllers
@@ -1230,6 +1310,10 @@ namespace BARS.Util
             {
                 OnError?.Invoke(this, $"Receive error: {ex.Message}");
                 logger.Error($"WebSocket receive error: {ex.Message}");
+                if (PilotPresenceStore.ClearAirport(_airport))
+                {
+                    vatsys.MMI.RequestRedraw(false, false, false);
+                }
                 if (_isConnected)
                 {
                     _isConnected = false;
@@ -1264,6 +1348,11 @@ namespace BARS.Util
                 {
                     type = "HEARTBEAT"
                 });
+
+                if (Properties.Settings.Default.ShowBARSPilots)
+                {
+                    await RequestOnlinePilots();
+                }
             }
             catch (Exception ex)
             {

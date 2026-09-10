@@ -34,5 +34,17 @@ namespace BARS.Properties {
                 this["APIKey"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool ShowBARSPilots {
+            get {
+                return ((bool)(this["ShowBARSPilots"]));
+            }
+            set {
+                this["ShowBARSPilots"] = value;
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ namespace BARS.Util
         private static readonly object _lock = new object();
         private static NetManager _instance;
         private readonly Dictionary<string, NetHandler.ConnectionEventHandler> _connChangedSubscriptions = new Dictionary<string, NetHandler.ConnectionEventHandler>();
-        private readonly Dictionary<string, NetHandler> _connections;
+        private readonly ConcurrentDictionary<string, NetHandler> _connections;
         private readonly Dictionary<string, CancellationTokenSource> _disconnectGrace = new Dictionary<string, CancellationTokenSource>();
 
         // 10 seconds grace on disconnect
@@ -22,7 +23,7 @@ namespace BARS.Util
 
         private NetManager()
         {
-            _connections = new Dictionary<string, NetHandler>();
+            _connections = new ConcurrentDictionary<string, NetHandler>(StringComparer.OrdinalIgnoreCase);
         }
 
         public static NetManager Instance
@@ -103,7 +104,7 @@ namespace BARS.Util
                     _connChangedSubscriptions.Remove(airport);
                 }
                 await handler.Disconnect();
-                _connections.Remove(airport);
+                _connections.TryRemove(airport, out _);
             }
         }
 
@@ -135,6 +136,26 @@ namespace BARS.Util
         public bool IsAirportConnected(string airport)
         {
             return _connections.TryGetValue(airport, out NetHandler handler) && handler.IsConnected();
+        }
+
+        public async Task RequestOnlinePilotsAll()
+        {
+            List<NetHandler> handlers;
+            lock (_lock)
+            {
+                handlers = new List<NetHandler>(_connections.Values);
+            }
+
+            var requests = new List<Task>();
+            foreach (NetHandler handler in handlers)
+            {
+                if (handler != null && handler.IsConnected())
+                {
+                    requests.Add(handler.RequestOnlinePilots());
+                }
+            }
+
+            await Task.WhenAll(requests);
         }
 
         /// <summary>

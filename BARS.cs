@@ -18,7 +18,8 @@ namespace BARS
     }
 
     [Export(typeof(IPlugin))]
-    public class BARS : IPlugin
+    [Export(typeof(ILabelPlugin))]
+    public class BARS : IPlugin, ILabelPlugin
     {
         public static Config config;
         public static List<Profiles> ProfileWindows = new List<Profiles>();
@@ -33,6 +34,7 @@ namespace BARS
         private static List<Controller_Legacy> LegacyWindows = new List<Controller_Legacy>();
         private readonly Logger logger = new Logger("BARS for vatSys");
         private readonly NetManager netManager = NetManager.Instance;
+        private static readonly object LabelsPatchLock = new object();
 
         public BARS()
         {
@@ -48,6 +50,16 @@ namespace BARS
 
             netManager.Initialize(Properties.Settings.Default.APIKey);
 
+            LabelsPatchResult patchResult = EnsurePilotLabelsPatched();
+            if (patchResult.Status == LabelsPatchStatus.Patched)
+            {
+                logger.Log($"Added BARS pilot indicator to {patchResult.LabelsPath}. A vatSys restart is required.");
+            }
+            else if (!patchResult.IsAvailable)
+            {
+                logger.Error(patchResult.Message ?? "BARS pilot labels could not be prepared.");
+            }
+
             logger.Log("Starting BARS for vatSys...");
             _ = Start();
         }
@@ -60,6 +72,40 @@ namespace BARS
 
         public string DisplayName => "BARS for vatSys";
         public string Name => "BARS for vatSys";
+
+        public static bool LabelsAddedThisLaunch { get; private set; }
+
+        internal static LabelsPatchResult EnsurePilotLabelsPatched()
+        {
+            lock (LabelsPatchLock)
+            {
+                LabelsPatchResult result = LabelsProfilePatcher.EnsurePatched();
+                if (result.Status == LabelsPatchStatus.Patched)
+                {
+                    LabelsAddedThisLaunch = true;
+                }
+
+                return result;
+            }
+        }
+
+        public static void SetShowBARSPilots(bool enabled)
+        {
+            Properties.Settings.Default.ShowBARSPilots = enabled;
+            Properties.Settings.Default.Save();
+
+            if (enabled)
+            {
+                _ = NetManager.Instance.RequestOnlinePilotsAll();
+            }
+            else
+            {
+                if (PilotPresenceStore.ClearAll())
+                {
+                    MMI.RequestRedraw(false, false, false);
+                }
+            }
+        }
 
         public static bool IsLegacyAirport(string icao)
         {
@@ -601,6 +647,51 @@ namespace BARS
 
         public void OnRadarTrackUpdate(RDP.RadarTrack updated)
         {
+        }
+
+        public CustomLabelItem GetCustomLabelItem(
+            string itemType,
+            Track track,
+            FDP2.FDR flightDataRecord,
+            RDP.RadarTrack radarTrack)
+        {
+            if (!string.Equals(itemType, LabelsProfilePatcher.LabelItemType, StringComparison.Ordinal) ||
+                !Properties.Settings.Default.ShowBARSPilots)
+            {
+                return null;
+            }
+
+            FDP2.FDR fdr = flightDataRecord ?? track?.GetFDR(true);
+            string callsign = fdr?.Callsign;
+            if (string.IsNullOrWhiteSpace(callsign))
+            {
+                callsign = radarTrack?.ActualAircraft?.Callsign;
+            }
+            if (string.IsNullOrWhiteSpace(callsign))
+            {
+                callsign = track?.GetRadarTrack()?.ActualAircraft?.Callsign;
+            }
+
+            if (!PilotPresenceStore.IsOnline(callsign))
+            {
+                return null;
+            }
+
+            return new CustomLabelItem
+            {
+                Text = "B",
+                ForeColourIdentity = Colours.Identities.Default
+            };
+        }
+
+        public CustomColour SelectASDTrackColour(Track track)
+        {
+            return null;
+        }
+
+        public CustomColour SelectGroundTrackColour(Track track)
+        {
+            return null;
         }
 
         private static void HandleControllerWindowClosed(object sender, string airport, string profile)

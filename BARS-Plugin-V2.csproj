@@ -95,9 +95,11 @@
     <Compile Include="Util\CdnProfiles.cs" />
     <Compile Include="Util\ControllerHandler.cs" />
     <Compile Include="Util\Logger.cs" />
+    <Compile Include="Util\LabelsProfilePatcher.cs" />
     <Compile Include="Util\NetworkSyncManager.cs" />
     <Compile Include="Util\NetHandler.cs" />
     <Compile Include="Util\NetManager.cs" />
+    <Compile Include="Util\PilotPresenceStore.cs" />
     <Compile Include="Windows\AirportMapControl.cs">
       <SubType>Component</SubType>
     </Compile>
