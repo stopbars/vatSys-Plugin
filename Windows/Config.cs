@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using BARS.Util;
 using vatsys;
 
 namespace BARS.Windows
@@ -13,6 +14,9 @@ namespace BARS.Windows
         private const int AIRPORT_ENTRY_SPACING = 5;
         private const int MAX_AIRPORTS = 5;
         private bool isAddingAirport = false;
+        private bool isInitialisingPilotToggle;
+        private bool pilotToggleValidated;
+        private bool restartNoticeShown;
 
         public Config()
         {
@@ -30,6 +34,7 @@ namespace BARS.Windows
             SyncAirportList();
 
             this.FormClosing += Config_FormClosing;
+            this.Shown += Config_Shown;
         }
 
         public void SyncAirportList()
@@ -109,6 +114,70 @@ namespace BARS.Windows
             }
         }
 
+        private void Config_Shown(object sender, EventArgs e)
+        {
+            if (chk_showBarsPilots.Checked && !pilotToggleValidated)
+            {
+                chk_showBarsPilots_CheckedChanged(chk_showBarsPilots, EventArgs.Empty);
+            }
+        }
+
+        private void chk_showBarsPilots_CheckedChanged(object sender, EventArgs e)
+        {
+            if (isInitialisingPilotToggle)
+            {
+                return;
+            }
+
+            pilotToggleValidated = true;
+
+            if (!chk_showBarsPilots.Checked)
+            {
+                BARS.SetShowBARSPilots(false);
+                UpdatePilotToggleLabelColour();
+                return;
+            }
+
+            LabelsPatchResult patchResult = BARS.EnsurePilotLabelsPatched();
+            if (!patchResult.IsAvailable)
+            {
+                isInitialisingPilotToggle = true;
+                chk_showBarsPilots.Checked = false;
+                isInitialisingPilotToggle = false;
+                BARS.SetShowBARSPilots(false);
+                UpdatePilotToggleLabelColour();
+
+                MessageBox.Show(
+                    patchResult.Message ?? "BARS could not prepare pilot indicators for the active vatSys profile.",
+                    "BARS Pilot Indicators",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            BARS.SetShowBARSPilots(true);
+            UpdatePilotToggleLabelColour();
+            if (BARS.LabelsAddedThisLaunch)
+            {
+                ShowPilotLabelsRestartRequired();
+            }
+        }
+
+        private void ShowPilotLabelsRestartRequired()
+        {
+            if (restartNoticeShown)
+            {
+                return;
+            }
+
+            restartNoticeShown = true;
+            MessageBox.Show(
+                "Restart vatSys to show BARS pilots on ground tags.",
+                "Restart Required",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
         private void CreateAirportEntry(string icao, int index)
         {
             var label = new TextLabel
@@ -125,7 +194,7 @@ namespace BARS.Windows
             {
                 Text = isLegacy ? "PROFILES" : "OPEN",
                 Size = new Size(75, 24),
-                Location = new Point(pnl_airports.Width - 165, label.Location.Y),
+                Location = new Point(pnl_airports.Width - 143, label.Location.Y),
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
@@ -155,7 +224,7 @@ namespace BARS.Windows
             {
                 Text = "REMOVE",
                 Size = new Size(60, 24),
-                Location = new Point(pnl_airports.Width - 87, label.Location.Y),
+                Location = new Point(pnl_airports.Width - 65, label.Location.Y),
                 Font = new Font("Terminus (TTF)", 16F, FontStyle.Regular, GraphicsUnit.Pixel),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Colours.GetColour(Colours.Identities.WindowBackground),
@@ -199,8 +268,48 @@ namespace BARS.Windows
             txt_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             lbl_key.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
             lbl_key.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            lbl_showBarsPilots.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
+            lbl_showBarsPilots.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            chk_showBarsPilots.BackColor = Colours.GetColour(Colours.Identities.WindowBackground);
+            chk_showBarsPilots.ForeColor = Colours.GetColour(Colours.Identities.InteractiveText);
 
             txt_key.Text = Properties.Settings.Default.APIKey;
+            isInitialisingPilotToggle = true;
+            chk_showBarsPilots.Checked = Properties.Settings.Default.ShowBARSPilots;
+            isInitialisingPilotToggle = false;
+            UpdatePilotToggleLabelColour();
+        }
+
+        private void UpdatePilotToggleLabelColour()
+        {
+            Colours.Identities colour = chk_showBarsPilots.Checked && BARS.LabelsAddedThisLaunch
+                ? Colours.Identities.NonInteractiveText
+                : Colours.Identities.InteractiveText;
+            lbl_showBarsPilots.ForeColor = Colours.GetColour(colour);
+        }
+
+        private static CheckBox CreateVatSysPilotToggle()
+        {
+            try
+            {
+                Type toggleType = typeof(Colours).Assembly.GetType("vatsys.ToggleButton", false);
+                if (toggleType != null && typeof(CheckBox).IsAssignableFrom(toggleType))
+                {
+                    return (CheckBox)Activator.CreateInstance(toggleType);
+                }
+            }
+            catch
+            {
+                // Retain a usable setting if vatSys changes its internal control.
+            }
+
+            return new CheckBox
+            {
+                Appearance = Appearance.Button,
+                FlatStyle = FlatStyle.Flat,
+                TextAlign = ContentAlignment.MiddleCenter,
+                UseVisualStyleBackColor = false
+            };
         }
 
         private void txt_icao_KeyPress(object sender, KeyPressEventArgs e)

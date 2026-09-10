@@ -21,15 +21,17 @@
             this.btn_add = new vatsys.GenericButton();
             this.txt_key = new vatsys.TextField();
             this.lbl_key = new vatsys.TextLabel();
+            this.lbl_showBarsPilots = new vatsys.TextLabel();
+            this.chk_showBarsPilots = CreateVatSysPilotToggle();
             this.SuspendLayout();
 
 
 
             this.pnl_airports.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.pnl_airports.Location = new System.Drawing.Point(12, 87);
+            this.pnl_airports.Location = new System.Drawing.Point(12, 117);
             this.pnl_airports.Name = "pnl_airports";
-            this.pnl_airports.Size = new System.Drawing.Size(260, 175);
+            this.pnl_airports.Size = new System.Drawing.Size(270, 175);
             this.pnl_airports.TabIndex = 3;
 
 
@@ -86,7 +88,7 @@
             this.txt_key.NumericCharOnly = false;
             this.txt_key.OctalOnly = false;
             this.txt_key.PasswordChar = '*';
-            this.txt_key.Size = new System.Drawing.Size(182, 25);
+            this.txt_key.Size = new System.Drawing.Size(192, 25);
             this.txt_key.TabIndex = 5;
             this.txt_key.TakesReturn = false;
             this.txt_key.UseSystemPasswordChar = true;
@@ -109,17 +111,45 @@
 
 
 
+            this.lbl_showBarsPilots.BackColor = System.Drawing.SystemColors.ActiveCaption;
+            this.lbl_showBarsPilots.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
+            this.lbl_showBarsPilots.ForeColor = System.Drawing.SystemColors.ControlDark;
+            this.lbl_showBarsPilots.HasBorder = false;
+            this.lbl_showBarsPilots.InteractiveText = true;
+            this.lbl_showBarsPilots.Location = new System.Drawing.Point(12, 82);
+            this.lbl_showBarsPilots.Name = "lbl_showBarsPilots";
+            this.lbl_showBarsPilots.Size = new System.Drawing.Size(240, 24);
+            this.lbl_showBarsPilots.TabIndex = 6;
+            this.lbl_showBarsPilots.Text = "Show Active Pilots On ASMGCS:";
+            this.lbl_showBarsPilots.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+
+
+
+            this.chk_showBarsPilots.AccessibleName = "Show Active Pilots On ASMGCS";
+            this.chk_showBarsPilots.Font = new System.Drawing.Font("Terminus (TTF)", 16F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
+            this.chk_showBarsPilots.Location = new System.Drawing.Point(258, 82);
+            this.chk_showBarsPilots.Name = "chk_showBarsPilots";
+            this.chk_showBarsPilots.Size = new System.Drawing.Size(24, 24);
+            this.chk_showBarsPilots.TabIndex = 7;
+            this.chk_showBarsPilots.Text = "";
+            this.chk_showBarsPilots.UseVisualStyleBackColor = false;
+            this.chk_showBarsPilots.CheckedChanged += new System.EventHandler(this.chk_showBarsPilots_CheckedChanged);
+
+
+
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(284, 272);
+            this.ClientSize = new System.Drawing.Size(294, 302);
+            this.Controls.Add(this.chk_showBarsPilots);
+            this.Controls.Add(this.lbl_showBarsPilots);
             this.Controls.Add(this.txt_key);
             this.Controls.Add(this.lbl_key);
             this.Controls.Add(this.btn_add);
             this.Controls.Add(this.txt_icao);
             this.Controls.Add(this.lbl_icao);
             this.Controls.Add(this.pnl_airports);
-            this.MaximumSize = new System.Drawing.Size(288, 300);
-            this.MinimumSize = new System.Drawing.Size(288, 263);
+            this.MaximumSize = new System.Drawing.Size(298, 330);
+            this.MinimumSize = new System.Drawing.Size(298, 293);
             this.Name = "Config";
             this.Resizeable = false;
             this.Text = "BARS Config";
@@ -134,5 +164,7 @@
         private vatsys.GenericButton btn_add;
         private vatsys.TextField txt_key;
         private vatsys.TextLabel lbl_key;
+        private vatsys.TextLabel lbl_showBarsPilots;
+        private System.Windows.Forms.CheckBox chk_showBarsPilots;
     }
 }
